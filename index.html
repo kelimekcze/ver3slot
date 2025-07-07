@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM Time Slots</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="notifications-container" id="notificationsContainer"></div>
+
+    <!-- Login Screen -->
+    <div class="login-container" id="loginContainer">
+        <div class="login-form">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">
+                <i class="fas fa-truck"></i> CRM Time Slots
+            </h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" value="" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Heslo:</label>
+                    <input type="password" id="password" name="password" value="" required>
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-sign-in-alt"></i> Přihlásit se
+                </button>
+            </form>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="#" id="showRegister" style="color: #667eea;">Nemáte účet? Registrujte se</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Screen -->
+    <div class="login-container" id="registerContainer" style="display: none;">
+        <div class="register-form">
+            <h2 style="text-align: center; margin-bottom: 30px; color: #667eea;">
+                <i class="fas fa-user-plus"></i> Registrace
+            </h2>
+            <form id="registerForm">
+                <div class="form-group">
+                    <label for="reg_username">Uživatelské jméno:</label>
+                    <input type="text" id="reg_username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg_email">Email:</label>
+                    <input type="email" id="reg_email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg_password">Heslo:</label>
+                    <input type="password" id="reg_password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg_full_name">Celé jméno:</label>
+                    <input type="text" id="reg_full_name" name="full_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="reg_phone">Telefon:</label>
+                    <input type="tel" id="reg_phone" name="phone">
+                </div>
+                <div class="form-group">
+                    <label for="reg_user_type">Typ uživatele:</label>
+                    <select id="reg_user_type" name="user_type" required>
+                        <option value="">Vyberte typ</option>
+                        <option value="driver">Řidič</option>
+                        <option value="logistics">Logistika</option>
+                    </select>
+                </div>
+                <div class="form-group" id="driverFields" style="display: none;">
+                    <label for="reg_company">Firma:</label>
+                    <input type="text" id="reg_company" name="company_name">
+                    <label for="reg_truck_plate">SPZ vozidla:</label>
+                    <input type="text" id="reg_truck_plate" name="truck_license_plate">
+                    <label for="reg_license">Číslo řidičského průkazu:</label>
+                    <input type="text" id="reg_license" name="driver_license">
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-user-plus"></i> Registrovat
+                </button>
+            </form>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="#" id="showLogin" style="color: #667eea;">Máte již účet? Přihlaste se</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="container main-content" id="mainContent" style="display: none;">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-truck"></i>
+                CRM Time Slots
+                <div class="company-info" id="companyInfo">Demo Logistika s.r.o.</div>
+            </div>
+            <div class="user-section">
+                <div class="notifications-bell" onclick="toggleNotifications()">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge" id="notificationCount">3</span>
+                </div>
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">DA</div>
+                    <div>
+                        <div style="font-weight: 600;" id="userName">Demo Admin</div>
+                        <div style="font-size: 12px; color: #666;" id="userRole">Administrátor</div>
+                    </div>
+                    <button class="btn btn-small btn-outline" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Odhlásit
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Hlavní menu</div>
+                    <ul class="sidebar-menu">
+                        <li><a onclick="showSection('dashboard')" class="active">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a></li>
+                        <li><a onclick="showSection('calendar')">
+                            <i class="fas fa-calendar-alt"></i> Kalendář
+                        </a></li>
+                        <li><a onclick="showSection('bookings')">
+                            <i class="fas fa-clock"></i> Rezervace
+                            <span class="badge" id="bookingsBadge">-</span>
+                        </a></li>
+                    </ul>
+                </div>
+
+                <div class="sidebar-section admin-only">
+                    <div class="sidebar-title">Správa</div>
+                    <ul class="sidebar-menu">
+                        <li><a onclick="showSection('warehouses')">
+                            <i class="fas fa-warehouse"></i> Sklady
+                        </a></li>
+                        <li><a onclick="showSection('slots')">
+                            <i class="fas fa-cogs"></i> Časové sloty
+                        </a></li>
+                        <li><a onclick="showSection('users')">
+                            <i class="fas fa-users"></i> Uživatelé
+                        </a></li>
+                    </ul>
+                </div>
+
+                <div class="sidebar-section">
+                    <div class="sidebar-title">Rychlé akce</div>
+                    <div class="quick-actions">
+                        <button class="quick-btn" onclick="createNewSlot()">
+                            <i class="fas fa-plus"></i> Nový slot
+                        </button>
+                        <button class="quick-btn" onclick="addUser()">
+                            <i class="fas fa-user-plus"></i> Přidat uživatele
+                        </button>
+                        <button class="quick-btn" onclick="exportData()">
+                            <i class="fas fa-download"></i> Export dat
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <!-- Dashboard Section -->
+                <div id="dashboard" class="page-section active">
+                    <div class="content-header">
+                        <h1 class="page-title">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </h1>
+                        <button class="btn btn-outline" onclick="refreshDashboard()">
+                            <i class="fas fa-sync-alt"></i> Obnovit
+                        </button>
+                    </div>
+
+                    <div class="content-body">
+                        <!-- Status Cards -->
+                        <div class="status-cards" id="dashboardStats">
+                            <div class="status-card pending">
+                                <div class="card-header">
+                                    <div>
+                                        <div class="card-label">Čekající rezervace</div>
+                                        <div class="card-value" id="pendingBookings">-</div>
+                                        <div class="card-trend trend-up">
+                                            <i class="fas fa-arrow-up"></i> Načítání...
+                                        </div>
+                                    </div>
+                                    <div class="card-icon pending">
+                                        <i class="fas fa-clock"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="status-card confirmed">
+                                <div class="card-header">
+                                    <div>
+                                        <div class="card-label">Potvrzené rezervace</div>
+                                        <div class="card-value" id="confirmedBookings">-</div>
+                                        <div class="card-trend trend-up">
+                                            <i class="fas fa-arrow-up"></i> Načítání...
+                                        </div>
+                                    </div>
+                                    <div class="card-icon confirmed">
+                                        <i class="fas fa-check-circle"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="status-card in-progress">
+                                <div class="card-header">
+                                    <div>
+                                        <div class="card-label">Probíhající</div>
+                                        <div class="card-value" id="inProgressBookings">-</div>
+                                        <div class="card-trend">
+                                            <i class="fas fa-truck"></i> Načítání...
+                                        </div>
+                                    </div>
+                                    <div class="card-icon in-progress">
+                                        <i class="fas fa-shipping-fast"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="status-card completed">
+                                <div class="card-header">
+                                    <div>
+                                        <div class="card-label">Dokončené dnes</div>
+                                        <div class="card-value" id="completedToday">-</div>
+                                        <div class="card-trend trend-down">
+                                            <i class="fas fa-arrow-down"></i> Načítání...
+                                        </div>
+                                    </div>
+                                    <div class="card-icon completed">
+                                        <i class="fas fa-flag-checkered"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upcoming Bookings -->
+                        <div class="bookings-section">
+                            <div class="section-header">
+                                <h2 class="section-title">Nadcházející rezervace</h2>
+                                <button class="btn btn-small" onclick="showSection('bookings')">
+                                    <i class="fas fa-eye"></i> Zobrazit vše
+                                </button>
+                            </div>
+                            <div class="booking-list" id="upcomingBookingsList">
+                                <div class="loading"><div class="spinner"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calendar Section -->
+                <div id="calendar" class="page-section">
+                    <div class="content-header">
+                        <h1 class="page-title">
+                            <i class="fas fa-calendar-alt"></i> Kalendář
+                        </h1>
+                        <button class="btn btn-outline" onclick="showNewSlotModal()">
+                            <i class="fas fa-plus"></i> Nový slot
+                        </button>
+                    </div>
+                    <div class="content-body">
+                        <div class="calendar-container">
+                            <div class="calendar-header">
+                                <h3 id="currentMonth">Červenec 2025</h3>
+                                <div class="calendar-nav">
+                                    <button class="btn btn-small" onclick="changeMonth(-1)">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <button class="btn btn-small" onclick="goToToday()">
+                                        <i class="fas fa-home"></i> Dnes
+                                    </button>
+                                    <button class="btn btn-small" onclick="changeMonth(1)">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="calendar-grid" id="calendarGrid"></div>
+                        </div>
+                        <div class="time-slots-grid" id="timeSlotsGrid">
+                            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #666;">
+                                Vyberte den pro zobrazení slotů
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bookings Section -->
+                <div id="bookings" class="page-section">
+                    <div class="content-header">
+                        <h1 class="page-title">
+                            <i class="fas fa-clock"></i> Rezervace
+                        </h1>
+                        <div class="header-actions">
+                            <div class="filter-group">
+                                <select id="bookingsFilter" onchange="filterBookings(this.value)">
+                                    <option value="all">Všechny rezervace</option>
+                                    <option value="pending">Čekající</option>
+                                    <option value="confirmed">Potvrzené</option>
+                                    <option value="in_progress">Probíhající</option>
+                                    <option value="completed">Dokončené</option>
+                                    <option value="cancelled">Zrušené</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-outline" onclick="showBookingModal()">
+                                <i class="fas fa-plus"></i> Nová rezervace
+                            </button>
+                        </div>
+                    </div>
+                    <div class="content-body">
+                        <div class="table-container">
+                            <table class="table" id="bookingsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Čas</th>
+                                        <th>Sklad</th>
+                                        <th>SPZ</th>
+                                        <th>Řidič</th>
+                                        <th>Status</th>
+                                        <th>Akce</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bookingsTableBody">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; padding: 40px;">
+                                            <div class="loading"><div class="spinner"></div></div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slots Section -->
+                <div id="slots" class="page-section">
+                    <div class="content-header">
+                        <h1 class="page-title">
+                            <i class="fas fa-cogs"></i> Správa slotů
+                        </h1>
+                        <div class="header-actions">
+                            <div class="filter-group">
+                                <input type="date" id="slotsDateFilter" onchange="filterSlotsByDate(this.value)" placeholder="Filtrovat podle data">
+                            </div>
+                            <button class="btn btn-outline" onclick="showNewSlotModal()">
+                                <i class="fas fa-plus"></i> Nový slot
+                            </button>
+                        </div>
+                    </div>
+                    <div class="content-body">
+                        <div class="table-container">
+                            <table class="table" id="slotsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Datum</th>
+                                        <th>Čas</th>
+                                        <th>Sklad</th>
+                                        <th>Typ</th>
+                                        <th>Kapacita</th>
+                                        <th>Rezervace</th>
+                                        <th>Poznámky</th>
+                                        <th>Akce</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="slotsTableBody">
+                                    <tr>
+                                        <td colspan="8" style="text-align: center; padding: 40px;">
+                                            <div class="loading"><div class="spinner"></div></div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Warehouses Section -->
+                <div id="warehouses" class="page-section">
+                    <div class="content-header">
+                        <h1 class="page-title"><i class="fas fa-warehouse"></i> Sklady</h1>
+                        <button class="btn btn-outline" onclick="showAddWarehouseModal()">
+                            <i class="fas fa-plus"></i> Nový sklad
+                        </button>
+                    </div>
+                    <div class="content-body">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Název</th>
+                                        <th>Adresa</th>
+                                        <th>Kontakt</th>
+                                        <th>Pracovní doba</th>
+                                        <th>Max. sloty</th>
+                                        <th>Akce</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="warehousesTableBody">
+                                    <tr>
+                                        <td colspan="6" style="text-align: center; padding: 40px;">
+                                            <div class="loading"><div class="spinner"></div></div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Section -->
+                <div id="users" class="page-section">
+                    <div class="content-header">
+                        <h1 class="page-title"><i class="fas fa-users"></i> Uživatelé</h1>
+                        <button class="btn btn-outline" onclick="showAddUserModal()">
+                            <i class="fas fa-plus"></i> Nový uživatel
+                        </button>
+                    </div>
+                    <div class="content-body">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Jméno</th>
+                                        <th>Email</th>
+                                        <th>Telefon</th>
+                                        <th>Typ</th>
+                                        <th>Firma</th>
+                                        <th>Vytvořeno</th>
+                                        <th>Akce</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; padding: 40px;">
+                                            <div class="loading"><div class="spinner"></div></div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    
+    <!-- Booking Modal -->
+    <div id="bookingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Nová rezervace</h2>
+                <button class="close-btn" onclick="closeModal('bookingModal')">×</button>
+            </div>
+            <form id="bookingForm">
+                <div class="form-group">
+                    <label for="booking_warehouse">Sklad:</label>
+                    <select id="booking_warehouse" name="warehouse_id" required>
+                        <option value="">Vyberte sklad</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="booking_date">Datum:</label>
+                    <input type="date" id="booking_date" name="booking_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="booking_slot">Časový slot:</label>
+                    <select id="booking_slot" name="time_slot_id" required>
+                        <option value="">Nejprve vyberte datum</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="booking_truck">SPZ vozidla:</label>
+                    <input type="text" id="booking_truck" name="truck_license_plate" required>
+                </div>
+                <div class="form-group">
+                    <label for="booking_cargo">Typ nákladu:</label>
+                    <input type="text" id="booking_cargo" name="cargo_type">
+                </div>
+                <div class="form-group">
+                    <label for="booking_weight">Hmotnost (kg):</label>
+                    <input type="number" id="booking_weight" name="cargo_weight" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="booking_duration">Odhadovaná doba (min):</label>
+                    <input type="number" id="booking_duration" name="estimated_duration" value="60" min="15" max="480">
+                </div>
+                <div class="form-group">
+                    <label for="booking_requirements">Speciální požadavky:</label>
+                    <textarea id="booking_requirements" name="special_requirements" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="booking_notes">Poznámky:</label>
+                    <textarea id="booking_notes" name="booking_notes" rows="2"></textarea>
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-save"></i> Rezervovat
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- New Slot Modal -->
+    <div id="newSlotModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Nový časový slot</h2>
+                <button class="close-btn" onclick="closeModal('newSlotModal')">×</button>
+            </div>
+            <form id="newSlotForm">
+                <div class="form-group">
+                    <label for="slot_warehouse">Sklad:</label>
+                    <select id="slot_warehouse" name="warehouse_id" required>
+                        <option value="">Vyberte sklad</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="slot_date">Datum:</label>
+                    <input type="date" id="slot_date" name="slot_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="slot_time">Čas:</label>
+                    <input type="time" id="slot_time" name="slot_time" required>
+                </div>
+                <div class="form-group">
+                    <label for="slot_duration">Délka (minuty):</label>
+                    <input type="number" id="slot_duration" name="duration_minutes" value="60" min="15" max="480" required>
+                </div>
+                <div class="form-group">
+                    <label for="slot_capacity">Kapacita:</label>
+                    <input type="number" id="slot_capacity" name="max_capacity" value="1" min="1" max="50" required>
+                </div>
+                <div class="form-group">
+                    <label for="slot_type">Typ:</label>
+                    <select id="slot_type" name="slot_type" required>
+                        <option value="unloading">Vykládka</option>
+                        <option value="loading">Nakládka</option>
+                        <option value="both">Nakládka/Vykládka</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="slot_notes">Poznámky:</label>
+                    <textarea id="slot_notes" name="notes" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-save"></i> Uložit slot
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Slot Modal - NOVĚ PŘIDÁNO -->
+    <div id="editSlotModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Upravit časový slot</h2>
+                <button class="close-btn" onclick="closeModal('editSlotModal')">×</button>
+            </div>
+            <div id="edit_slot_warning" style="display: none;"></div>
+            <form id="editSlotForm">
+                <input type="hidden" id="edit_slot_id" name="slot_id">
+                <div class="form-group">
+                    <label for="edit_slot_warehouse">Sklad:</label>
+                    <select id="edit_slot_warehouse" name="warehouse_id" required>
+                        <option value="">Vyberte sklad</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_slot_date">Datum:</label>
+                    <input type="date" id="edit_slot_date" name="slot_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_slot_time">Čas:</label>
+                    <input type="time" id="edit_slot_time" name="slot_time" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_slot_duration">Délka (minuty):</label>
+                    <input type="number" id="edit_slot_duration" name="duration_minutes" min="15" max="480" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_slot_capacity">Kapacita:</label>
+                    <input type="number" id="edit_slot_capacity" name="max_capacity" min="1" max="50" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_slot_type">Typ:</label>
+                    <select id="edit_slot_type" name="slot_type" required>
+                        <option value="unloading">Vykládka</option>
+                        <option value="loading">Nakládka</option>
+                        <option value="both">Nakládka/Vykládka</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_slot_notes">Poznámky:</label>
+                    <textarea id="edit_slot_notes" name="notes" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-save"></i> Uložit změny
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Booking Modal -->
+    <div id="editBookingModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Upravit rezervaci</h2>
+                <button class="close-btn" onclick="closeModal('editBookingModal')">×</button>
+            </div>
+            <form id="editBookingForm">
+                <input type="hidden" id="edit_booking_id" name="booking_id">
+                <div class="form-group">
+                    <label for="edit_booking_warehouse">Sklad:</label>
+                    <select id="edit_booking_warehouse" name="warehouse_id" required>
+                        <option value="">Vyberte sklad</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_booking_date">Datum:</label>
+                    <input type="date" id="edit_booking_date" name="booking_date" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_booking_slot">Časový slot:</label>
+                    <select id="edit_booking_slot" name="time_slot_id" required>
+                        <option value="">Nejprve vyberte datum</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="edit_booking_truck">SPZ vozidla:</label>
+                    <input type="text" id="edit_booking_truck" name="truck_license_plate" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_booking_cargo">Typ nákladu:</label>
+                    <input type="text" id="edit_booking_cargo" name="cargo_type">
+                </div>
+                <div class="form-group">
+                    <label for="edit_booking_weight">Hmotnost (kg):</label>
+                    <input type="number" id="edit_booking_weight" name="cargo_weight" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="edit_booking_duration">Odhadovaná doba (min):</label>
+                    <input type="number" id="edit_booking_duration" name="estimated_duration" min="15" max="480">
+                </div>
+                <div class="form-group">
+                    <label for="edit_booking_requirements">Speciální požadavky:</label>
+                    <textarea id="edit_booking_requirements" name="special_requirements" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="edit_booking_notes">Poznámky:</label>
+                    <textarea id="edit_booking_notes" name="booking_notes" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="edit_booking_status">Status:</label>
+                    <select id="edit_booking_status" name="booking_status">
+                        <option value="pending">Čeká na potvrzení</option>
+                        <option value="confirmed">Potvrzeno</option>
+                        <option value="in_progress">Probíhá</option>
+                        <option value="completed">Dokončeno</option>
+                        <option value="cancelled">Zrušeno</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-save"></i> Uložit změny
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Nový uživatel</h2>
+                <button class="close-btn" onclick="closeModal('addUserModal')">×</button>
+            </div>
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label for="user_username">Uživatelské jméno:</label>
+                    <input type="text" id="user_username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="user_email">Email:</label>
+                    <input type="email" id="user_email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="user_password">Heslo:</label>
+                    <input type="password" id="user_password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="user_full_name">Celé jméno:</label>
+                    <input type="text" id="user_full_name" name="full_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="user_phone">Telefon:</label>
+                    <input type="tel" id="user_phone" name="phone">
+                </div>
+                <div class="form-group">
+                    <label for="user_type">Typ uživatele:</label>
+                    <select id="user_type" name="user_type" required>
+                        <option value="">Vyberte typ</option>
+                        <option value="admin">Administrátor</option>
+                        <option value="logistics">Logistika</option>
+                        <option value="driver">Řidič</option>
+                    </select>
+                </div>
+                <div class="form-group" id="userDriverFields" style="display: none;">
+                    <label for="user_company">Firma:</label>
+                    <input type="text" id="user_company" name="company_name">
+                    <label for="user_truck_plate">SPZ vozidla:</label>
+                    <input type="text" id="user_truck_plate" name="truck_license_plate">
+                    <label for="user_license">Řidičský průkaz:</label>
+                    <input type="text" id="user_license" name="driver_license">
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-save"></i> Vytvořit uživatele
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Upravit uživatele</h2>
+                <button class="close-btn" onclick="closeModal('editUserModal')">×</button>
+            </div>
+            <form id="editUserForm">
+                <input type="hidden" id="edit_user_id" name="user_id">
+                <div class="form-group">
+                    <label for="edit_user_username">Uživatelské jméno:</label>
+                    <input type="text" id="edit_user_username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_user_email">Email:</label>
+                    <input type="email" id="edit_user_email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_user_password">Nové heslo (nechte prázdné pro zachování):</label>
+                    <input type="password" id="edit_user_password" name="password">
+                </div>
+                <div class="form-group">
+                    <label for="edit_user_full_name">Celé jméno:</label>
+                    <input type="text" id="edit_user_full_name" name="full_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_user_phone">Telefon:</label>
+                    <input type="tel" id="edit_user_phone" name="phone">
+                </div>
+                <div class="form-group">
+                    <label for="edit_user_type">Typ uživatele:</label>
+                    <select id="edit_user_type" name="user_type" required>
+                        <option value="">Vyberte typ</option>
+                        <option value="admin">Administrátor</option>
+                        <option value="logistics">Logistika</option>
+                        <option value="driver">Řidič</option>
+                    </select>
+                </div>
+                <div class="form-group" id="editUserDriverFields" style="display: none;">
+                    <label for="edit_user_company">Firma:</label>
+                    <input type="text" id="edit_user_company" name="company_name">
+                    <label for="edit_user_truck_plate">SPZ vozidla:</label>
+                    <input type="text" id="edit_user_truck_plate" name="truck_license_plate">
+                    <label for="edit_user_license">Řidičský průkaz:</label>
+                    <input type="text" id="edit_user_license" name="driver_license">
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-save"></i> Uložit změny
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Warehouse Modal -->
+    <div id="addWarehouseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Nový sklad</h2>
+                <button class="close-btn" onclick="closeModal('addWarehouseModal')">×</button>
+            </div>
+            <form id="addWarehouseForm">
+                <div class="form-group">
+                    <label for="warehouse_name">Název skladu:</label>
+                    <input type="text" id="warehouse_name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="warehouse_address">Adresa:</label>
+                    <input type="text" id="warehouse_address" name="address" required>
+                </div>
+                <div class="form-group">
+                    <label for="warehouse_contact_person">Kontaktní osoba:</label>
+                    <input type="text" id="warehouse_contact_person" name="contact_person">
+                </div>
+                <div class="form-group">
+                    <label for="warehouse_contact_phone">Telefon:</label>
+                    <input type="tel" id="warehouse_contact_phone" name="contact_phone">
+                </div>
+                <div class="form-group">
+                    <label for="warehouse_contact_email">E-mail:</label>
+                    <input type="email" id="warehouse_contact_email" name="contact_email">
+                </div>
+                <div class="form-group">
+                    <label for="warehouse_working_hours_start">Pracovní doba od:</label>
+                    <input type="time" id="warehouse_working_hours_start" name="working_hours_start" value="08:00">
+                </div>
+                <div class="form-group">
+                    <label for="warehouse_working_hours_end">Pracovní doba do:</label>
+                    <input type="time" id="warehouse_working_hours_end" name="working_hours_end" value="16:00">
+                </div>
+                <div class="form-group">
+                    <label for="warehouse_max_slots">Max. simultánní sloty:</label>
+                    <input type="number" id="warehouse_max_slots" name="max_simultaneous_slots" value="5" min="1" max="50">
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-save"></i> Vytvořit sklad
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Warehouse Modal -->
+    <div id="editWarehouseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Upravit sklad</h2>
+                <button class="close-btn" onclick="closeModal('editWarehouseModal')">×</button>
+            </div>
+            <form id="editWarehouseForm">
+                <input type="hidden" id="edit_warehouse_id" name="warehouse_id">
+                <div class="form-group">
+                    <label for="edit_warehouse_name">Název skladu:</label>
+                    <input type="text" id="edit_warehouse_name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_warehouse_address">Adresa:</label>
+                    <input type="text" id="edit_warehouse_address" name="address" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_warehouse_contact_person">Kontaktní osoba:</label>
+                    <input type="text" id="edit_warehouse_contact_person" name="contact_person">
+                </div>
+                <div class="form-group">
+                    <label for="edit_warehouse_contact_phone">Telefon:</label>
+                    <input type="tel" id="edit_warehouse_contact_phone" name="contact_phone">
+                </div>
+                <div class="form-group">
+                    <label for="edit_warehouse_contact_email">E-mail:</label>
+                    <input type="email" id="edit_warehouse_contact_email" name="contact_email">
+                </div>
+                <div class="form-group">
+                    <label for="edit_warehouse_working_hours_start">Pracovní doba od:</label>
+                    <input type="time" id="edit_warehouse_working_hours_start" name="working_hours_start">
+                </div>
+                <div class="form-group">
+                    <label for="edit_warehouse_working_hours_end">Pracovní doba do:</label>
+                    <input type="time" id="edit_warehouse_working_hours_end" name="working_hours_end">
+                </div>
+                <div class="form-group">
+                    <label for="edit_warehouse_max_slots">Max. simultánní sloty:</label>
+                    <input type="number" id="edit_warehouse_max_slots" name="max_simultaneous_slots" min="1" max="50">
+                </div>
+                <button type="submit" class="btn">
+                    <i class="fas fa-save"></i> Uložit změny
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Files -->
+    <script src="js/app.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/booking.js"></script>
+    <script src="js/calendar.js"></script>
+    <script src="js/dashboard.js"></script>
+    
+    <script>
+        // Global booking action functions
+        function confirmBooking(id) {
+            console.log('Confirming booking:', id);
+            if (window.bookingManager) {
+                window.bookingManager.confirmBooking(id);
+            }
+        }
+        
+        function rejectBooking(id) {
+            console.log('Rejecting booking:', id);
+            if (window.bookingManager) {
+                window.bookingManager.rejectBooking(id);
+            }
+        }
+        
+        function startBooking(id) {
+            console.log('Starting booking:', id);
+            if (window.bookingManager) {
+                window.bookingManager.startBooking(id);
+            }
+        }
+        
+        function completeBooking(id) {
+            console.log('Completing booking:', id);
+            if (window.bookingManager) {
+                window.bookingManager.completeBooking(id);
+            }
+        }
+
+        // Filter functions
+        function filterBookings(status) {
+            if (window.bookingManager) {
+                window.bookingManager.filterBookings(status);
+            }
+        }
+
+        function filterSlotsByDate(date) {
+            const rows = document.querySelectorAll('#slotsTableBody tr');
+            
+            rows.forEach(row => {
+                if (!date) {
+                    row.style.display = '';
+                } else {
+                    const dateCell = row.cells[0];
+                    if (dateCell && dateCell.textContent.includes(date)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        // Load warehouses for forms
+        async function loadWarehousesForForms() {
+            try {
+                const response = await fetch('api/warehouses.php', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    if (text) {
+                        const data = JSON.parse(text);
+                        if (data.success) {
+                            const selects = [
+                                'booking_warehouse',
+                                'slot_warehouse', 
+                                'edit_slot_warehouse',
+                                'edit_booking_warehouse'
+                            ];
+                            
+                            selects.forEach(selectId => {
+                                const select = document.getElementById(selectId);
+                                if (select) {
+                                    const currentValue = select.value;
+                                    select.innerHTML = '<option value="">Vyberte sklad</option>';
+                                    
+                                    data.warehouses.forEach(warehouse => {
+                                        const option = document.createElement('option');
+                                        option.value = warehouse.id;
+                                        option.textContent = warehouse.name;
+                                        select.appendChild(option);
+                                    });
+                                    
+                                    if (currentValue) {
+                                        select.value = currentValue;
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load warehouses:', error);
+            }
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM Content Loaded - Initializing complete application...');
+            
+            // Load warehouses for all forms
+            setTimeout(loadWarehousesForForms, 1000);
+            
+            // Set today as default date for new slots
+            const today = new Date().toISOString().split('T')[0];
+            const slotDateInput = document.getElementById('slot_date');
+            if (slotDateInput) {
+                slotDateInput.value = today;
+            }
+            
+            // Handle user type changes for driver fields
+            const userTypeSelect = document.getElementById('user_type');
+            if (userTypeSelect) {
+                userTypeSelect.addEventListener('change', function() {
+                    const driverFields = document.getElementById('userDriverFields');
+                    if (this.value === 'driver') {
+                        driverFields.style.display = 'block';
+                    } else {
+                        driverFields.style.display = 'none';
+                    }
+                });
+            }
+            
+            const editUserTypeSelect = document.getElementById('edit_user_type');
+            if (editUserTypeSelect) {
+                editUserTypeSelect.addEventListener('change', function() {
+                    const driverFields = document.getElementById('editUserDriverFields');
+                    if (this.value === 'driver') {
+                        driverFields.style.display = 'block';
+                    } else {
+                        driverFields.style.display = 'none';
+                    }
+                });
+            }
+            
+            console.log('✅ Complete application initialized successfully');
+        });
+    </script>
+</body>
+</html>
