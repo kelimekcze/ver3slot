@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Slots</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .results { font-family: monospace; white-space: pre-wrap; background: #f5f5f5; padding: 15px; border-radius: 5px; max-height: 400px; overflow-y: auto; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        input, select { padding: 5px; margin: 2px; }
+    </style>
+</head>
+<body>
+    <h1>🕒 Test Slots API</h1>
+    
+    <div class="test-section">
+        <h2>1. GET Slots - Test načtení</h2>
+        <button onclick="testGetSlots()">Test GET /api/slots.php</button>
+        <div id="get-results" class="results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. POST Slot - Test vytvoření</h2>
+        <div>
+            <label>Sklad ID:</label>
+            <input type="number" id="warehouse-id" value="1" min="1">
+            
+            <label>Datum:</label>
+            <input type="date" id="slot-date" value="">
+            
+            <label>Čas:</label>
+            <input type="time" id="slot-time" value="10:00">
+            
+            <label>Délka (min):</label>
+            <input type="number" id="duration" value="60" min="15" max="480">
+            
+            <label>Kapacita:</label>
+            <input type="number" id="capacity" value="1" min="1" max="50">
+            
+            <label>Typ:</label>
+            <select id="slot-type">
+                <option value="unloading">Vykládka</option>
+                <option value="loading">Nakládka</option>
+                <option value="both">Obojí</option>
+            </select>
+        </div>
+        <br>
+        <label>Poznámky:</label>
+        <input type="text" id="notes" placeholder="Volitelné poznámky">
+        
+        <br><br>
+        <button onclick="testCreateSlot()">Vytvořit slot</button>
+        <div id="create-results" class="results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. GET Warehouses - Test skladů</h2>
+        <button onclick="testGetWarehouses()">Test GET /api/warehouses.php</button>
+        <div id="warehouses-results" class="results"></div>
+    </div>
+    
+    <script>
+    // Nastavit dnešní datum jako výchozí
+    document.getElementById('slot-date').value = new Date().toISOString().split('T')[0];
+    
+    async function testGetSlots() {
+        const results = document.getElementById('get-results');
+        results.innerHTML = 'Testuji GET slots...\n\n';
+        
+        try {
+            const response = await fetch('../api/slots.php');
+            const data = await response.json();
+            
+            results.innerHTML += `✅ GET /api/slots.php\n`;
+            results.innerHTML += `Status: ${response.status}\n`;
+            results.innerHTML += `Response: ${JSON.stringify(data, null, 2)}\n\n`;
+            
+            if (data.success) {
+                results.innerHTML += `🎉 Nalezeno ${data.slots.length} slotů\n`;
+            } else {
+                results.innerHTML += '❌ Chyba: ' + (data.error || 'Neznámá chyba') + '\n';
+            }
+            
+        } catch (error) {
+            results.innerHTML += '💥 Chyba při volání API:\n';
+            results.innerHTML += error.message + '\n';
+        }
+    }
+    
+    async function testCreateSlot() {
+        const results = document.getElementById('create-results');
+        results.innerHTML = 'Vytvářím slot...\n\n';
+        
+        const slotData = {
+            warehouse_id: parseInt(document.getElementById('warehouse-id').value),
+            slot_date: document.getElementById('slot-date').value,
+            slot_time: document.getElementById('slot-time').value + ':00',
+            duration_minutes: parseInt(document.getElementById('duration').value),
+            max_capacity: parseInt(document.getElementById('capacity').value),
+            slot_type: document.getElementById('slot-type').value,
+            notes: document.getElementById('notes').value
+        };
+        
+        try {
+            const response = await fetch('../api/slots.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(slotData)
+            });
+            
+            const data = await response.json();
+            
+            results.innerHTML += `📤 POST /api/slots.php\n`;
+            results.innerHTML += `Status: ${response.status}\n`;
+            results.innerHTML += `Sent data: ${JSON.stringify(slotData, null, 2)}\n\n`;
+            results.innerHTML += `Response: ${JSON.stringify(data, null, 2)}\n\n`;
+            
+            if (data.success) {
+                results.innerHTML += `🎉 Slot úspěšně vytvořen! ID: ${data.slot_id}\n`;
+            } else {
+                results.innerHTML += '❌ Chyba: ' + (data.error || 'Neznámá chyba') + '\n';
+                if (data.errors) {
+                    results.innerHTML += 'Detaily:\n';
+                    data.errors.forEach(error => {
+                        results.innerHTML += `  - ${error}\n`;
+                    });
+                }
+            }
+            
+        } catch (error) {
+            results.innerHTML += '💥 Chyba při volání API:\n';
+            results.innerHTML += error.message + '\n';
+        }
+    }
+    
+    async function testGetWarehouses() {
+        const results = document.getElementById('warehouses-results');
+        results.innerHTML = 'Testuji GET warehouses...\n\n';
+        
+        try {
+            const response = await fetch('../api/warehouses.php');
+            const data = await response.json();
+            
+            results.innerHTML += `✅ GET /api/warehouses.php\n`;
+            results.innerHTML += `Status: ${response.status}\n`;
+            results.innerHTML += `Response: ${JSON.stringify(data, null, 2)}\n\n`;
+            
+            if (data.success) {
+                results.innerHTML += `🎉 Nalezeno ${data.count} skladů:\n`;
+                data.warehouses.forEach(w => {
+                    results.innerHTML += `  - ${w.name} (ID: ${w.id})\n`;
+                });
+            } else {
+                results.innerHTML += '❌ Chyba: ' + (data.error || 'Neznámá chyba') + '\n';
+            }
+            
+        } catch (error) {
+            results.innerHTML += '💥 Chyba při volání API:\n';
+            results.innerHTML += error.message + '\n';
+        }
+    }
+    
+    // Auto-test při načtení
+    window.onload = function() {
+        testGetWarehouses();
+    };
+    </script>
+</body>
+</html>
