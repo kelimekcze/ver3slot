@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test API Warehouses</title>
+    <meta charset="utf-8">
+</head>
+<body>
+    <h1>🏭 Test Warehouses API</h1>
+    
+    <div id="results" style="font-family: monospace; white-space: pre-wrap; background: #f5f5f5; padding: 20px; border-radius: 5px;"></div>
+    
+    <script>
+    async function testAPI() {
+        const results = document.getElementById('results');
+        results.innerHTML = 'Testuji API warehouses...\n\n';
+        
+        try {
+            // Test GET warehouses
+            const response = await fetch('../api/warehouses.php');
+            const data = await response.json();
+            
+            results.innerHTML += '✅ GET /api/warehouses.php\n';
+            results.innerHTML += `Status: ${response.status}\n`;
+            results.innerHTML += `Response: ${JSON.stringify(data, null, 2)}\n\n`;
+            
+            if (data.success) {
+                results.innerHTML += `🎉 Nalezeno ${data.count} skladů:\n`;
+                data.warehouses.forEach(w => {
+                    results.innerHTML += `  - ${w.name} (ID: ${w.id})\n`;
+                });
+            } else {
+                results.innerHTML += '❌ Chyba: ' + (data.error || 'Neznámá chyba') + '\n';
+            }
+            
+        } catch (error) {
+            results.innerHTML += '💥 Chyba při volání API:\n';
+            results.innerHTML += error.message + '\n';
+        }
+    }
+    
+    // Spusť test automaticky
+    testAPI();
+    </script>
+</body>
+</html>
