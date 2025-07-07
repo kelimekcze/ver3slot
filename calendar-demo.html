@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moderní Drag & Drop Logistický Kalendář - Demo</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+    <style>
+        /* Demo specific styles */
+        .demo-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .demo-header {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .demo-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        .demo-subtitle {
+            font-size: 18px;
+            color: #64748b;
+            margin-bottom: 24px;
+        }
+
+        .demo-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .feature-card {
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            text-align: left;
+        }
+
+        .feature-icon {
+            color: #10b981;
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .feature-title {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .feature-desc {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .demo-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 24px;
+        }
+
+        .demo-btn {
+            background: linear-gradient(45deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .demo-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .demo-btn-outline {
+            background: white;
+            color: #10b981;
+            border: 1px solid #10b981;
+        }
+
+        .demo-btn-outline:hover {
+            background: #10b981;
+            color: white;
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .info-icon {
+            color: #3b82f6;
+            font-size: 18px;
+            margin-top: 2px;
+        }
+
+        .sample-data-notice {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        /* Mock API responses for demo */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-content {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1001;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s;
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #10b981;
+        }
+
+        .notification.error {
+            background: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <!-- Demo Header -->
+        <div class="demo-header">
+            <h1 class="demo-title">
+                <i class="fas fa-truck"></i>
+                Moderní Drag & Drop Logistický Kalendář
+            </h1>
+            <p class="demo-subtitle">
+                Pokročilý slot systém pro logistické plánování s intuitivním rozhraním
+            </p>
+
+            <div class="demo-features">
+                <div class="feature-card">
+                    <i class="fas fa-calendar-week feature-icon"></i>
+                    <div class="feature-title">Týdenní rozvrh</div>
+                    <div class="feature-desc">Časový plán od 6:00 do 22:00 hodin</div>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-mouse feature-icon"></i>
+                    <div class="feature-title">Drag & Drop</div>
+                    <div class="feature-desc">Intuitivní přesouvání slotů myší i dotykem</div>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-palette feature-icon"></i>
+                    <div class="feature-title">Barevné stavy</div>
+                    <div class="feature-desc">Vizuální rozlišení stavů operací</div>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-plus-circle feature-icon"></i>
+                    <div class="feature-title">Rychlé vytváření</div>
+                    <div class="feature-desc">Kliknutí na prázdný slot otevře formulář</div>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-warehouse feature-icon"></i>
+                    <div class="feature-title">Multi-warehouse</div>
+                    <div class="feature-desc">Podpora více skladů s filtrováním</div>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-mobile-alt feature-icon"></i>
+                    <div class="feature-title">Responsive</div>
+                    <div class="feature-desc">Plně responzivní design pro všechna zařízení</div>
+                </div>
+            </div>
+
+            <div class="demo-actions">
+                <button class="demo-btn" onclick="generateSampleData()">
+                    <i class="fas fa-database"></i> Generovat vzorová data
+                </button>
+                <button class="demo-btn demo-btn-outline" onclick="clearAllSlots()">
+                    <i class="fas fa-trash"></i> Vymazat všechny sloty
+                </button>
+                <button class="demo-btn demo-btn-outline" onclick="showInstructions()">
+                    <i class="fas fa-info-circle"></i> Návod k použití
+                </button>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="info-box" id="instructionsBox" style="display: none;">
+            <i class="fas fa-info-circle info-icon"></i>
+            <div>
+                <strong>Návod k použití:</strong><br>
+                1. <strong>Přidání slotu:</strong> Klikněte na prázdnou buňku v kalendáři<br>
+                2. <strong>Přesouvání:</strong> Uchopte slot a přetáhněte na nové místo<br>
+                3. <strong>Úprava:</strong> Najeďte myší na slot a klikněte na ikonu úprav<br>
+                4. <strong>Mazání:</strong> Najeďte myší na slot a klikněte na ikonu koše<br>
+                5. <strong>Filtrování:</strong> Použijte výběr skladu v hlavičce kalendáře
+            </div>
+        </div>
+
+        <!-- Sample Data Notice -->
+        <div class="sample-data-notice">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Demo režim:</strong> Toto je demonstrační verze s mock daty. V produkci se data ukládají do databáze.
+        </div>
+
+        <!-- Calendar Container -->
+        <div id="calendarGrid">
+            <!-- Kalendář se vygeneruje automaticky -->
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner" style="margin: 0 auto 20px;"></div>
+            <div>Načítání...</div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div class="notification" id="notification"></div>
+
+    <!-- Scripts -->
+    <script src="calendar.js"></script>
+    
+    <script>
+        // Mock API pro demo
+        class MockAPI {
+            constructor() {
+                this.slots = [];
+                this.warehouses = [
+                    { id: 1, name: 'Sklad Praha - Střed' },
+                    { id: 2, name: 'Sklad Brno - Jih' },
+                    { id: 3, name: 'Sklad Ostrava - Sever' },
+                    { id: 4, name: 'Distribuční centrum' }
+                ];
+                this.slotId = 1;
+            }
+
+            async mockFetch(url, options = {}) {
+                await this.delay(300); // Simulace network delay
+
+                if (url.includes('/warehouses.php')) {
+                    return this.mockResponse({ success: true, warehouses: this.warehouses });
+                }
+
+                if (url.includes('/slots.php')) {
+                    if (options.method === 'POST') {
+                        return this.createSlot(options.body);
+                    } else if (options.method === 'PUT') {
+                        return this.updateSlot(options.body);
+                    } else if (options.method === 'DELETE') {
+                        return this.deleteSlot(options.body);
+                    } else {
+                        return this.getSlots(url);
+                    }
+                }
+
+                return this.mockResponse({ error: 'API endpoint not found' }, 404);
+            }
+
+            createSlot(body) {
+                const data = JSON.parse(body);
+                const slot = {
+                    id: this.slotId++,
+                    ...data,
+                    current_bookings: 0,
+                    warehouse_name: this.warehouses.find(w => w.id == data.warehouse_id)?.name || 'Neznámý sklad'
+                };
+                this.slots.push(slot);
+                return this.mockResponse({ success: true, slot_id: slot.id });
+            }
+
+            updateSlot(body) {
+                const data = JSON.parse(body);
+                const slotIndex = this.slots.findIndex(s => s.id == data.slot_id);
+                if (slotIndex >= 0) {
+                    this.slots[slotIndex] = { ...this.slots[slotIndex], ...data };
+                    return this.mockResponse({ success: true });
+                }
+                return this.mockResponse({ error: 'Slot not found' }, 404);
+            }
+
+            deleteSlot(body) {
+                const data = JSON.parse(body);
+                this.slots = this.slots.filter(s => s.id != data.slot_id);
+                return this.mockResponse({ success: true });
+            }
+
+            getSlots(url) {
+                const urlParams = new URLSearchParams(url.split('?')[1] || '');
+                let filtered = [...this.slots];
+
+                if (urlParams.get('warehouse_id')) {
+                    filtered = filtered.filter(s => s.warehouse_id == urlParams.get('warehouse_id'));
+                }
+
+                if (urlParams.get('date_from') && urlParams.get('date_to')) {
+                    const from = urlParams.get('date_from');
+                    const to = urlParams.get('date_to');
+                    filtered = filtered.filter(s => s.slot_date >= from && s.slot_date <= to);
+                }
+
+                return this.mockResponse({ success: true, slots: filtered });
+            }
+
+            mockResponse(data, status = 200) {
+                return Promise.resolve({
+                    ok: status < 400,
+                    status: status,
+                    json: () => Promise.resolve(data)
+                });
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        // Přepsání fetch pro demo
+        const mockAPI = new MockAPI();
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            if (url.includes('api/')) {
+                return mockAPI.mockFetch(url, options);
+            }
+            return originalFetch(url, options);
+        };
+
+        // Override notification systém
+        window.crmApp = {
+            showNotification: function(message, type = 'success') {
+                showNotification(message, type);
+            }
+        };
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function showLoading() {
+            document.getElementById('loadingOverlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+
+        // Demo functions
+        function generateSampleData() {
+            showLoading();
+            
+            const today = new Date();
+            const sampleSlots = [];
+            
+            // Generuj sloty pro současný týden
+            for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() - today.getDay() + 1 + dayOffset); // Monday start
+                
+                const slotsPerDay = Math.floor(Math.random() * 6) + 2; // 2-7 slotů na den
+                
+                for (let i = 0; i < slotsPerDay; i++) {
+                    const hour = Math.floor(Math.random() * 14) + 6; // 6-19 hodin
+                    const minute = Math.random() < 0.5 ? 0 : 30;
+                    const warehouseId = Math.floor(Math.random() * 4) + 1;
+                    const slotTypes = ['loading', 'unloading', 'both'];
+                    const durations = [30, 60, 90, 120];
+                    
+                    const slot = {
+                        warehouse_id: warehouseId,
+                        slot_date: date.toISOString().split('T')[0],
+                        slot_time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`,
+                        duration_minutes: durations[Math.floor(Math.random() * durations.length)],
+                        max_capacity: Math.floor(Math.random() * 3) + 1,
+                        slot_type: slotTypes[Math.floor(Math.random() * slotTypes.length)],
+                        notes: Math.random() < 0.3 ? `ORD-2024-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}` : ''
+                    };
+                    
+                    sampleSlots.push(slot);
+                }
+            }
+            
+            // Přidej sloty postupně
+            let added = 0;
+            const addNext = async () => {
+                if (added < sampleSlots.length) {
+                    await mockAPI.createSlot(JSON.stringify(sampleSlots[added]));
+                    added++;
+                    setTimeout(addNext, 100);
+                } else {
+                    hideLoading();
+                    showNotification(`Vygenerováno ${sampleSlots.length} vzorových slotů`, 'success');
+                    if (window.logisticsCalendar) {
+                        window.logisticsCalendar.loadSlots();
+                    }
+                }
+            };
+            
+            addNext();
+        }
+
+        function clearAllSlots() {
+            if (confirm('Opravdu vymazat všechny sloty?')) {
+                showLoading();
+                mockAPI.slots = [];
+                setTimeout(() => {
+                    hideLoading();
+                    showNotification('Všechny sloty byly vymazány', 'success');
+                    if (window.logisticsCalendar) {
+                        window.logisticsCalendar.loadSlots();
+                    }
+                }, 500);
+            }
+        }
+
+        function showInstructions() {
+            const box = document.getElementById('instructionsBox');
+            box.style.display = box.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        // Vylepšené styly pro demo
+        document.addEventListener('DOMContentLoaded', function() {
+            showNotification('Demo kalendář byl úspěšně načten!', 'success');
+        });
+    </script>
+</body>
+</html>

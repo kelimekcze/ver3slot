@@ -472,6 +472,454 @@ body {
     padding: 2px;
 }
 
+/* Modern Logistics Calendar Styles */
+.logistics-calendar {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    margin: 20px 0;
+}
+
+.calendar-header-controls {
+    background: #f8fafc;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.week-navigation {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.current-week {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1e293b;
+    min-width: 200px;
+    text-align: center;
+}
+
+.calendar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.warehouse-selector {
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 500;
+    color: #374151;
+    cursor: pointer;
+    min-width: 180px;
+}
+
+/* Status Legend */
+.status-legend {
+    display: flex;
+    gap: 20px;
+    padding: 12px 24px;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    flex-wrap: wrap;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.status-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1px solid;
+}
+
+/* Calendar Container */
+.calendar-container {
+    overflow-x: auto;
+    background: white;
+}
+
+.calendar-grid {
+    min-width: 800px;
+    width: 100%;
+}
+
+/* Calendar Header Row */
+.calendar-header-row {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.time-header {
+    background: #f1f5f9;
+    border-right: 1px solid #e2e8f0;
+    padding: 16px 8px;
+    text-align: center;
+    font-weight: 600;
+    color: #64748b;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.day-header {
+    padding: 16px 8px;
+    text-align: center;
+    border-right: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.day-header:last-child {
+    border-right: none;
+}
+
+.day-header.today {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+}
+
+.day-name {
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.day-date {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Calendar Time Rows */
+.calendar-time-row {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    min-height: 60px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.time-cell {
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    padding: 8px;
+    text-align: center;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.day-cell {
+    border-right: 1px solid #e2e8f0;
+    position: relative;
+    min-height: 60px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    background: white;
+}
+
+.day-cell:last-child {
+    border-right: none;
+}
+
+.day-cell:hover {
+    background: #f8fafc;
+}
+
+.day-cell.drop-highlight {
+    background: #dcfce7;
+    border: 2px dashed #10b981;
+}
+
+/* Slot Items */
+.slot-item {
+    position: absolute;
+    left: 2px;
+    right: 2px;
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: move;
+    transition: all 0.2s;
+    min-height: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    z-index: 1;
+    border-left: 4px solid;
+    overflow: hidden;
+}
+
+.slot-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+}
+
+.slot-item.dragging {
+    opacity: 0.8;
+    transform: rotate(2deg);
+    z-index: 100;
+}
+
+.slot-content {
+    flex: 1;
+    line-height: 1.2;
+}
+
+.slot-time {
+    font-weight: 600;
+    margin-bottom: 2px;
+    color: #1e293b;
+    font-size: 10px;
+}
+
+.slot-warehouse {
+    color: #64748b;
+    font-size: 9px;
+    margin-bottom: 1px;
+    font-weight: 500;
+}
+
+.slot-type {
+    color: #374151;
+    font-size: 9px;
+    margin-bottom: 1px;
+}
+
+.slot-order {
+    color: #059669;
+    font-size: 9px;
+    font-weight: 600;
+    margin-bottom: 1px;
+}
+
+.slot-capacity {
+    color: #64748b;
+    font-size: 8px;
+    margin-top: 2px;
+}
+
+.slot-actions {
+    display: none;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.slot-item:hover .slot-actions {
+    display: flex;
+}
+
+.slot-action-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    padding: 2px 4px;
+    cursor: pointer;
+    color: #64748b;
+    font-size: 10px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 16px;
+}
+
+.slot-action-btn:hover {
+    background: white;
+    color: #1e293b;
+}
+
+.slot-action-btn.delete:hover {
+    background: #fecaca;
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+
+/* Slot Status Colors - Enhanced */
+.slot-loading, .slot-nakladka {
+    background: #ede9fe !important;
+    border-left-color: #8b5cf6 !important;
+}
+
+.slot-unloading, .slot-vykladka {
+    background: #d1fae5 !important;
+    border-left-color: #10b981 !important;
+}
+
+.slot-both {
+    background: #fef3c7 !important;
+    border-left-color: #f59e0b !important;
+}
+
+.slot-reserved {
+    background: #dbeafe !important;
+    border-left-color: #3b82f6 !important;
+}
+
+.slot-arrived {
+    background: #fef3c7 !important;
+    border-left-color: #f59e0b !important;
+}
+
+.slot-cancelled {
+    background: #fecaca !important;
+    border-left-color: #ef4444 !important;
+}
+
+.slot-completed {
+    background: #d1fae5 !important;
+    border-left-color: #10b981 !important;
+}
+
+/* Form Rows for Modal */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .calendar-header-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    
+    .week-navigation {
+        justify-content: center;
+    }
+    
+    .calendar-actions {
+        justify-content: center;
+    }
+    
+    .status-legend {
+        justify-content: center;
+    }
+    
+    .calendar-grid {
+        min-width: 600px;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .calendar-header-controls {
+        padding: 12px 16px;
+    }
+    
+    .status-legend {
+        padding: 8px 16px;
+        gap: 12px;
+    }
+    
+    .calendar-time-row {
+        min-height: 50px;
+    }
+    
+    .slot-item {
+        padding: 4px 6px;
+        font-size: 10px;
+    }
+    
+    .slot-time {
+        font-size: 9px;
+    }
+    
+    .slot-warehouse,
+    .slot-type,
+    .slot-order {
+        font-size: 8px;
+    }
+    
+    .slot-capacity {
+        font-size: 7px;
+    }
+    
+    .warehouse-selector {
+        min-width: 140px;
+    }
+    
+    .current-week {
+        min-width: 150px;
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .calendar-header-controls {
+        padding: 8px 12px;
+    }
+    
+    .calendar-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .status-legend {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .calendar-grid {
+        min-width: 400px;
+    }
+    
+    .time-header,
+    .time-cell {
+        width: 60px;
+        font-size: 10px;
+        padding: 4px;
+    }
+    
+    .calendar-header-row,
+    .calendar-time-row {
+        grid-template-columns: 60px repeat(7, 1fr);
+    }
+}
+
 /* Time Slots v kalendáři */
 .calendar-time-slot {
     position: absolute;
