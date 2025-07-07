@@ -1,11 +1,10 @@
-// js/app.js - Hlavní aplikační logika s integrací kalendáře
+// js/app.js - Hlavní aplikační logika s integrací moderního kalendáře
 class CRMApp {
     constructor() {
         this.currentUser = null;
         this.refreshInterval = null;
         this.currentDate = new Date();
         this.selectedDate = null;
-        // Opravená cesta k API - používáme relativní cestu
         this.apiBase = 'api';
         
         this.init();
@@ -14,7 +13,7 @@ class CRMApp {
     async init() {
         this.setupEventListeners();
         await this.checkAuthStatus();
-        this.setupCalendarIntegration();
+        this.setupInitialData();
     }
 
     setupEventListeners() {
@@ -32,7 +31,7 @@ class CRMApp {
             }
         });
 
-        // Keyboard shortcuts
+        // Global keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey || e.metaKey) {
                 switch (e.key) {
@@ -42,9 +41,16 @@ class CRMApp {
                         break;
                     case 'n':
                         e.preventDefault();
-                        this.createNewSlot();
+                        if (document.getElementById('calendar').classList.contains('active')) {
+                            this.showNewSlotModal();
+                        }
                         break;
                 }
+            }
+            
+            // Escape to close modals
+            if (e.key === 'Escape') {
+                this.closeAllModals();
             }
         });
 
@@ -54,91 +60,47 @@ class CRMApp {
                 e.target.classList.remove('active');
             }
         });
+
+        // Initialize sidebar navigation
+        this.setupSidebarNavigation();
     }
 
-    // Setup calendar integration
-    setupCalendarIntegration() {
-        // Setup warehouse selector for calendar
-        const warehouseSelector = document.getElementById('warehouseSelector');
-        if (warehouseSelector) {
-            this.loadWarehousesForSelector();
-        }
-
-        // Setup calendar container
-        this.setupCalendarContainer();
-    }
-
-    // Setup calendar container HTML
-    setupCalendarContainer() {
-        const calendarSection = document.getElementById('calendar');
-        if (calendarSection) {
-            const contentBody = calendarSection.querySelector('.content-body');
-            if (contentBody && !document.getElementById('calendarContainer')) {
-                contentBody.innerHTML = `
-                    <div class="calendar-controls">
-                        <div class="view-toggle">
-                            <button class="view-btn active" data-view="week">Týden</button>
-                            <button class="view-btn" data-view="day">Den</button>
-                        </div>
-                        <select id="warehouseSelector" class="warehouse-selector">
-                            <option value="">Všechny sklady</option>
-                        </select>
-                        <button class="btn btn-small" onclick="crmApp.showNewSlotModal()">
-                            <i class="fas fa-plus"></i> Nový slot
-                        </button>
-                    </div>
-                    <div id="calendarContainer"></div>
-                `;
-            }
-        }
-    }
-
-    // Load warehouses for selector
-    async loadWarehousesForSelector() {
-        try {
-            const response = await fetch(`${this.apiBase}/warehouses.php`, {
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const text = await response.text();
-                if (text) {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        const selector = document.getElementById('warehouseSelector');
-                        if (selector) {
-                            // Keep "All warehouses" option
-                            const currentValue = selector.value;
-                            selector.innerHTML = '<option value="">Všechny sklady</option>';
-                            
-                            data.warehouses.forEach(warehouse => {
-                                const option = document.createElement('option');
-                                option.value = warehouse.id;
-                                option.textContent = warehouse.name;
-                                selector.appendChild(option);
-                            });
-                            
-                            // Restore selected value
-                            if (currentValue) {
-                                selector.value = currentValue;
-                            }
-                        }
+    setupSidebarNavigation() {
+        document.querySelectorAll('.sidebar-menu a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                // Remove active from all links
+                document.querySelectorAll('.sidebar-menu a').forEach(l => l.classList.remove('active'));
+                
+                // Add active to clicked link
+                link.classList.add('active');
+                
+                // Get section from onclick attribute
+                const onclick = link.getAttribute('onclick');
+                if (onclick) {
+                    const sectionMatch = onclick.match(/showSection\('([^']+)'\)/);
+                    if (sectionMatch) {
+                        this.showSection(sectionMatch[1]);
                     }
                 }
-            }
-        } catch (error) {
-            console.error('Failed to load warehouses for selector:', error);
-        }
+            });
+        });
+    }
+
+    async setupInitialData() {
+        // Setup forms after auth check
+        setTimeout(() => {
+            this.loadWarehousesForForms();
+            this.setupFormHandlers();
+            this.setDefaultFormValues();
+        }, 1000);
     }
 
     async checkAuthStatus() {
         try {
-            console.log('Checking auth status with:', this.apiBase + '/session.php');
+            console.log('Checking auth status...');
             
-            // Try to get current user from session
             const response = await fetch(this.apiBase + '/session.php', {
                 credentials: 'include',
                 headers: {
@@ -146,12 +108,8 @@ class CRMApp {
                 }
             });
             
-            console.log('Session response status:', response.status);
-            
             if (response.ok) {
                 const text = await response.text();
-                console.log('Session response text:', text);
-                
                 if (text) {
                     try {
                         const data = JSON.parse(text);
@@ -159,6 +117,7 @@ class CRMApp {
                             this.currentUser = data.user;
                             this.showMainContent();
                             await this.loadDashboardData();
+                            this.setupCalendarIntegration();
                             return;
                         }
                     } catch (jsonError) {
@@ -174,6 +133,29 @@ class CRMApp {
         }
     }
 
+    setupCalendarIntegration() {
+        // Wait for calendar to be initialized and integrate
+        setTimeout(() => {
+            if (window.logisticsCalendar) {
+                // Link calendar with main app notifications
+                window.logisticsCalendar.showSuccess = (message) => {
+                    this.showNotification(message, 'success');
+                };
+                
+                window.logisticsCalendar.showError = (message) => {
+                    this.showNotification(message, 'error');
+                };
+
+                // Enhanced slot editing integration
+                window.logisticsCalendar.editSlot = (slotId) => {
+                    this.editSlot(slotId);
+                };
+
+                console.log('✅ Calendar integration completed');
+            }
+        }, 500);
+    }
+
     showMainContent() {
         document.getElementById('loginContainer').style.display = 'none';
         const registerContainer = document.getElementById('registerContainer');
@@ -184,7 +166,6 @@ class CRMApp {
         
         this.updateUserInfo();
         this.setupAdminVisibility();
-        this.setupCalendarIntegration(); // Setup calendar after showing main content
     }
 
     showLoginScreen() {
@@ -232,30 +213,18 @@ class CRMApp {
         return roles[userType] || 'Uživatel';
     }
 
-    // Navigation with calendar integration
+    // Enhanced section navigation with calendar integration
     showSection(sectionName) {
         // Hide all sections
         document.querySelectorAll('.page-section').forEach(section => {
             section.classList.remove('active');
         });
         
-        // Remove active class from all menu items
-        document.querySelectorAll('.sidebar-menu a').forEach(link => {
-            link.classList.remove('active');
-        });
-        
         // Show selected section
         const section = document.getElementById(sectionName);
         if (section) {
             section.classList.add('active');
-            
-            // Load section-specific data
             this.loadSectionData(sectionName);
-        }
-        
-        // Add active class to clicked menu item
-        if (event && event.target) {
-            event.target.classList.add('active');
         }
     }
 
@@ -265,14 +234,13 @@ class CRMApp {
                 await this.loadDashboardData();
                 break;
             case 'calendar':
-                // Setup calendar if not already done
-                this.setupCalendarContainer();
-                await this.loadWarehousesForSelector();
-                
-                // Initialize calendar manager if available
-                if (window.calendarManager) {
-                    window.calendarManager.generateCalendar();
-                }
+                // Initialize calendar after section becomes visible
+                setTimeout(() => {
+                    if (window.logisticsCalendar) {
+                        window.logisticsCalendar.generateWeeklyCalendar();
+                        window.logisticsCalendar.loadSlots();
+                    }
+                }, 100);
                 break;
             case 'bookings':
                 await this.loadAllBookings();
@@ -289,29 +257,21 @@ class CRMApp {
         }
     }
 
-    // Dashboard Data
+    // Dashboard Data Management
     async loadDashboardData() {
         try {
-            console.log('Loading dashboard data...');
-            
             // Load dashboard statistics
             const statsResponse = await fetch(`${this.apiBase}/bookings.php?dashboard_stats=1`, {
                 credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
+                headers: { 'Accept': 'application/json' }
             });
             
             if (statsResponse.ok) {
                 const text = await statsResponse.text();
                 if (text) {
-                    try {
-                        const statsData = JSON.parse(text);
-                        if (statsData.success) {
-                            this.updateDashboardStats(statsData.stats);
-                        }
-                    } catch (e) {
-                        console.error('Stats JSON parse error:', e);
+                    const statsData = JSON.parse(text);
+                    if (statsData.success) {
+                        this.updateDashboardStats(statsData.stats);
                     }
                 }
             }
@@ -319,28 +279,22 @@ class CRMApp {
             // Load upcoming bookings
             const upcomingResponse = await fetch(`${this.apiBase}/bookings.php?upcoming=1&limit=5`, {
                 credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
+                headers: { 'Accept': 'application/json' }
             });
             
             if (upcomingResponse.ok) {
                 const text = await upcomingResponse.text();
                 if (text) {
-                    try {
-                        const upcomingData = JSON.parse(text);
-                        if (upcomingData.success) {
-                            this.updateUpcomingBookings(upcomingData.bookings);
-                        }
-                    } catch (e) {
-                        console.error('Upcoming JSON parse error:', e);
+                    const upcomingData = JSON.parse(text);
+                    if (upcomingData.success) {
+                        this.updateUpcomingBookings(upcomingData.bookings);
                     }
                 }
             }
 
         } catch (error) {
             console.error('Failed to load dashboard data:', error);
-            this.showNotification('Chyba při načítání dat: ' + error.message, 'error');
+            this.showNotification('Chyba při načítání dat dashboardu', 'error');
         }
     }
 
@@ -436,18 +390,274 @@ class CRMApp {
                     </button>
                 `);
                 break;
-            default:
-                actions.push(`
-                    <button class="btn btn-small btn-outline" onclick="event.stopPropagation(); editBooking(${booking.id})">
-                        <i class="fas fa-edit"></i> Upravit
-                    </button>
-                `);
         }
         
         return actions.join('');
     }
 
-    // Utility Functions
+    // Notification System
+    showNotification(message, type = 'info') {
+        const container = document.getElementById('notificationsContainer');
+        if (!container) return;
+
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas ${this.getNotificationIcon(type)}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: inherit; cursor: pointer; margin-left: auto;">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        container.appendChild(notification);
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    getNotificationIcon(type) {
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+        return icons[type] || 'fa-info-circle';
+    }
+
+    // Modal Management
+    showModal(modalId, data = null) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.add('active');
+            if (data) {
+                this.populateModalData(modalId, data);
+            }
+        }
+    }
+
+    closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.classList.remove('active');
+            const form = modal.querySelector('form');
+            if (form) {
+                form.reset();
+            }
+        }
+    }
+
+    closeAllModals() {
+        document.querySelectorAll('.modal.active').forEach(modal => {
+            modal.classList.remove('active');
+        });
+        
+        // Close calendar modal if exists
+        if (window.logisticsCalendar) {
+            window.logisticsCalendar.closeBookingModal();
+        }
+    }
+
+    populateModalData(modalId, data) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        Object.entries(data).forEach(([key, value]) => {
+            const input = modal.querySelector(`[name="${key}"], #${key}`);
+            if (input) {
+                if (input.type === 'checkbox') {
+                    input.checked = value;
+                } else {
+                    input.value = value;
+                }
+            }
+        });
+    }
+
+    // Slot Management
+    showNewSlotModal() {
+        if (window.logisticsCalendar) {
+            window.logisticsCalendar.showBookingModal();
+        } else {
+            this.showModal('slotModal');
+        }
+    }
+
+    async editSlot(slotId) {
+        try {
+            const response = await fetch(`${this.apiBase}/slots.php?id=${slotId}`, {
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.showModal('editSlotModal', data.slot);
+                } else {
+                    this.showNotification('Chyba při načítání slotu', 'error');
+                }
+            }
+        } catch (error) {
+            this.showNotification('Chyba při načítání slotu: ' + error.message, 'error');
+        }
+    }
+
+    async deleteSlot(slotId) {
+        if (!confirm('Opravdu smazat tento slot?')) return;
+
+        try {
+            const response = await fetch(`${this.apiBase}/slots.php`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ slot_id: slotId })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                this.showNotification('Slot byl smazán', 'success');
+                this.refreshAfterSlotAction();
+            } else {
+                throw new Error(result.error || 'Chyba při mazání slotu');
+            }
+        } catch (error) {
+            this.showNotification('Chyba při mazání: ' + error.message, 'error');
+        }
+    }
+
+    // Refresh methods
+    refreshAfterSlotAction() {
+        // Refresh calendar if visible
+        if (document.getElementById('calendar').classList.contains('active') && window.logisticsCalendar) {
+            window.logisticsCalendar.refresh();
+        }
+        
+        // Refresh slots table if visible
+        if (document.getElementById('slots').classList.contains('active')) {
+            this.loadAllSlots();
+        }
+        
+        // Refresh dashboard
+        if (document.getElementById('dashboard').classList.contains('active')) {
+            this.loadDashboardData();
+        }
+    }
+
+    refreshDashboard() {
+        this.loadDashboardData();
+        this.showNotification('Dashboard byl obnoven', 'success');
+    }
+
+    // Form setup and handling
+    setupFormHandlers() {
+        // Set up form submission handlers here if needed
+        this.setupUserTypeHandlers();
+    }
+
+    setupUserTypeHandlers() {
+        const userTypeSelect = document.getElementById('user_type');
+        if (userTypeSelect) {
+            userTypeSelect.addEventListener('change', (e) => {
+                const driverFields = document.getElementById('userDriverFields');
+                if (driverFields) {
+                    driverFields.style.display = e.target.value === 'driver' ? 'block' : 'none';
+                }
+            });
+        }
+        
+        const editUserTypeSelect = document.getElementById('edit_user_type');
+        if (editUserTypeSelect) {
+            editUserTypeSelect.addEventListener('change', (e) => {
+                const driverFields = document.getElementById('editUserDriverFields');
+                if (driverFields) {
+                    driverFields.style.display = e.target.value === 'driver' ? 'block' : 'none';
+                }
+            });
+        }
+    }
+
+    setDefaultFormValues() {
+        const today = new Date().toISOString().split('T')[0];
+        const slotDateInput = document.getElementById('slot_date');
+        if (slotDateInput) {
+            slotDateInput.value = today;
+        }
+    }
+
+    async loadWarehousesForForms() {
+        try {
+            const response = await fetch(`${this.apiBase}/warehouses.php`, {
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const text = await response.text();
+                if (text) {
+                    const data = JSON.parse(text);
+                    if (data.success) {
+                        const selectors = [
+                            'booking_warehouse',
+                            'slot_warehouse', 
+                            'edit_slot_warehouse',
+                            'edit_booking_warehouse'
+                        ];
+                        
+                        selectors.forEach(selectId => {
+                            const select = document.getElementById(selectId);
+                            if (select) {
+                                const currentValue = select.value;
+                                select.innerHTML = '<option value="">Vyberte sklad</option>';
+                                
+                                data.warehouses.forEach(warehouse => {
+                                    const option = document.createElement('option');
+                                    option.value = warehouse.id;
+                                    option.textContent = warehouse.name;
+                                    select.appendChild(option);
+                                });
+                                
+                                if (currentValue) {
+                                    select.value = currentValue;
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load warehouses:', error);
+        }
+    }
+
+    // Data loading methods
+    async loadAllBookings() {
+        // Implementation for loading all bookings
+        console.log('Loading all bookings...');
+    }
+
+    async loadAllSlots() {
+        // Implementation for loading all slots
+        console.log('Loading all slots...');
+    }
+
+    async loadAllWarehouses() {
+        // Implementation for loading all warehouses
+        console.log('Loading all warehouses...');
+    }
+
+    async loadAllUsers() {
+        // Implementation for loading all users
+        console.log('Loading all users...');
+    }
+
+    // Utility methods
     getStatusClass(status) {
         const classes = {
             pending: 'status-pending',
@@ -470,15 +680,6 @@ class CRMApp {
         return texts[status] || 'Neznámý';
     }
 
-    getSlotTypeText(type) {
-        const texts = {
-            loading: 'Nakládka',
-            unloading: 'Vykládka',
-            both: 'Nakládka/Vykládka'
-        };
-        return texts[type] || type;
-    }
-
     isDateToday(date) {
         const today = new Date();
         return date.toDateString() === today.toDateString();
@@ -490,581 +691,195 @@ class CRMApp {
         return date.toDateString() === tomorrow.toDateString();
     }
 
-    addMinutes(time, minutes) {
-        const [hours, mins] = time.split(':').map(Number);
-        const totalMinutes = hours * 60 + mins + minutes;
-        const newHours = Math.floor(totalMinutes / 60);
-        const newMins = totalMinutes % 60;
-        return `${String(newHours).padStart(2, '0')}:${String(newMins).padStart(2, '0')}`;
-    }
-
-    // Notification System
-    showNotification(message, type = 'info') {
-        const container = document.getElementById('notificationsContainer');
-        if (!container) {
-            // Fallback to alert if notification container doesn't exist
-            alert(message);
-            return;
-        }
-
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.innerHTML = `
-            <div>
-                <strong>${this.getNotificationTitle(type)}</strong>
-                <p>${message}</p>
-            </div>
-            <button onclick="this.parentElement.remove()" style="background:none;border:none;float:right;cursor:pointer;">×</button>
-        `;
-        
-        container.appendChild(notification);
-        
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-            if (notification.parentElement) {
-                notification.remove();
-            }
-        }, 5000);
-    }
-
-    getNotificationTitle(type) {
-        const titles = {
-            success: 'Úspěch',
-            error: 'Chyba',
-            warning: 'Upozornění',
-            info: 'Informace'
-        };
-        return titles[type] || 'Informace';
-    }
-
-    // Quick Actions with calendar integration
+    // Quick actions
     createNewSlot() {
-        this.showNewSlotModal();
+        this.showSection('calendar');
+        setTimeout(() => this.showNewSlotModal(), 200);
     }
 
     addUser() {
-        this.showAddUserModal();
+        this.showSection('users');
+        setTimeout(() => this.showModal('addUserModal'), 200);
     }
 
     exportData() {
-        this.showNotification('Export dat - TODO', 'info');
-    }
-
-    refreshDashboard() {
-        this.showNotification('Obnovování dat...', 'info');
-        this.loadDashboardData();
-        
-        // Refresh calendar if visible
-        if (window.calendarManager && document.getElementById('calendar').classList.contains('active')) {
-            window.calendarManager.generateCalendar();
-        }
+        this.showNotification('Export funkcionalita bude brzy k dispozici', 'info');
     }
 
     viewBookingDetail(bookingId) {
-        this.showNotification(`Zobrazení detailu rezervace #${bookingId} - TODO`, 'info');
+        console.log('Viewing booking detail:', bookingId);
+        // Implementation for viewing booking details
     }
 
     editBooking(bookingId) {
-        this.showNotification(`Úprava rezervace #${bookingId} - TODO`, 'info');
-    }
-
-    async editSlot(slotId) {
-        console.log('CRMApp: Edit slot:', slotId);
-        
-        if (window.bookingManager) {
-            await window.bookingManager.showEditSlotModal(slotId);
-        } else {
-            this.showNotification('BookingManager není k dispozici', 'error');
-        }
-    }
-
-    async deleteSlot(slotId) {
-        if (confirm('Opravdu smazat tento slot?')) {
-            console.log('CRMApp: Delete slot:', slotId);
-            
-            if (window.calendarManager) {
-                await window.calendarManager.deleteSlot(slotId);
-            } else {
-                this.showNotification('CalendarManager není k dispozici', 'error');
-            }
-        }
-    }
-
-    toggleNotifications() {
-        this.showNotification('Panel notifikací - TODO', 'info');
-    }
-
-    // Load Data Methods with calendar refresh
-    async loadAllBookings() {
-        try {
-            const response = await fetch(`${this.apiBase}/bookings.php`, {
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const text = await response.text();
-                if (text) {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        this.updateBookingsTable(data.bookings);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load bookings:', error);
-        }
-    }
-
-    updateBookingsTable(bookings) {
-        const tbody = document.getElementById('bookingsTableBody');
-        if (!tbody) return;
-
-        if (bookings.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px;">Žádné rezervace</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = bookings.map(booking => `
-            <tr>
-                <td>${booking.slot_date}</td>
-                <td>${booking.slot_time.substring(0, 5)}</td>
-                <td>${booking.warehouse_name}</td>
-                <td>${booking.truck_license_plate}</td>
-                <td>${booking.driver_name}</td>
-                <td><span class="booking-status ${this.getStatusClass(booking.booking_status)}">${this.getStatusText(booking.booking_status)}</span></td>
-                <td>
-                    <button class="btn btn-small btn-secondary" onclick="crmApp.viewBookingDetail(${booking.id})">
-                        <i class="fas fa-eye"></i> Detail
-                    </button>
-                    ${booking.booking_status === 'pending' ? `
-                    <button class="btn btn-small btn-success" onclick="confirmBooking(${booking.id})">
-                        <i class="fas fa-check"></i>
-                    </button>
-                    <button class="btn btn-small btn-danger" onclick="rejectBooking(${booking.id})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    ` : ''}
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    async loadAllSlots() {
-        try {
-            const response = await fetch(`${this.apiBase}/slots.php`, {
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const text = await response.text();
-                if (text) {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        this.updateSlotsTable(data.slots);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load slots:', error);
-        }
-    }
-
-    updateSlotsTable(slots) {
-        const tbody = document.getElementById('slotsTableBody');
-        if (!tbody) return;
-
-        if (slots.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">Žádné časové sloty</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = slots.map(slot => `
-            <tr>
-                <td>${slot.slot_date}</td>
-                <td>${slot.slot_time.substring(0, 5)}</td>
-                <td>${slot.warehouse_name}</td>
-                <td>${this.getSlotTypeText(slot.slot_type)}</td>
-                <td>${slot.max_capacity}</td>
-                <td>${slot.current_bookings}/${slot.max_capacity}</td>
-                <td>${slot.notes || '-'}</td>
-                <td>
-                    <button class="btn btn-small btn-secondary" onclick="crmApp.editSlot(${slot.id})">
-                        <i class="fas fa-edit"></i> Upravit
-                    </button>
-                    <button class="btn btn-small btn-danger" onclick="crmApp.deleteSlot(${slot.id})">
-                        <i class="fas fa-trash"></i> Smazat
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    // WAREHOUSE FUNCTIONS - Zachováno z originálu
-    async loadAllWarehouses() {
-        console.log('CRMApp: Loading all warehouses...');
-        try {
-            const response = await fetch(`${this.apiBase}/warehouses.php`, {
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const text = await response.text();
-                if (text) {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        this.updateWarehousesTable(data.warehouses);
-                    } else {
-                        throw new Error(data.error || 'Chyba při načítání skladů');
-                    }
-                }
-            } else {
-                throw new Error('Chyba při komunikaci se serverem');
-            }
-        } catch (error) {
-            console.error('CRMApp: Failed to load warehouses:', error);
-            this.showNotification('Chyba při načítání skladů: ' + error.message, 'error');
-        }
-    }
-
-    updateWarehousesTable(warehouses) {
-        console.log('CRMApp: Updating warehouses table with', warehouses.length, 'warehouses');
-        const tbody = document.getElementById('warehousesTableBody');
-        if (!tbody) return;
-
-        if (warehouses.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px;">Žádné sklady</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = warehouses.map(warehouse => `
-            <tr>
-                <td>${warehouse.name}</td>
-                <td>${warehouse.address || '-'}</td>
-                <td>${warehouse.contact_person || '-'}<br><small>${warehouse.contact_phone || ''}</small></td>
-                <td>${warehouse.working_hours_start || '08:00'} - ${warehouse.working_hours_end || '16:00'}</td>
-                <td>${warehouse.max_simultaneous_slots || 5}</td>
-                <td>
-                    <button class="btn btn-small btn-secondary" onclick="crmApp.editWarehouse(${warehouse.id})">
-                        <i class="fas fa-edit"></i> Upravit
-                    </button>
-                    <button class="btn btn-small btn-danger" onclick="crmApp.deleteWarehouse(${warehouse.id})">
-                        <i class="fas fa-trash"></i> Smazat
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    async editWarehouse(warehouseId) {
-        console.log('CRMApp: Edit warehouse:', warehouseId);
-        
-        try {
-            const response = await fetch(`${this.apiBase}/warehouses.php?id=${warehouseId}`, {
-                credentials: 'include'
-            });
-            
-            if (response.ok) {
-                const text = await response.text();
-                const data = JSON.parse(text);
-                if (data.success && data.warehouse) {
-                    const warehouse = data.warehouse;
-                    document.getElementById('edit_warehouse_id').value = warehouse.id;
-                    document.getElementById('edit_warehouse_name').value = warehouse.name;
-                    document.getElementById('edit_warehouse_address').value = warehouse.address || '';
-                    document.getElementById('edit_warehouse_contact_person').value = warehouse.contact_person || '';
-                    document.getElementById('edit_warehouse_contact_phone').value = warehouse.contact_phone || '';
-                    document.getElementById('edit_warehouse_contact_email').value = warehouse.contact_email || '';
-                    document.getElementById('edit_warehouse_working_hours_start').value = warehouse.working_hours_start || '08:00';
-                    document.getElementById('edit_warehouse_working_hours_end').value = warehouse.working_hours_end || '16:00';
-                    document.getElementById('edit_warehouse_max_slots').value = warehouse.max_simultaneous_slots || 5;
-                    
-                    this.showModal('editWarehouseModal');
-                }
-            }
-        } catch (error) {
-            this.showNotification('Chyba při načítání skladu: ' + error.message, 'error');
-        }
-    }
-
-    async deleteWarehouse(warehouseId) {
-        if (confirm('Opravdu smazat tento sklad?')) {
-            console.log('CRMApp: Delete warehouse:', warehouseId);
-            
-            try {
-                const response = await fetch(`${this.apiBase}/warehouses.php`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({ warehouse_id: warehouseId })
-                });
-
-                const text = await response.text();
-                const result = text ? JSON.parse(text) : {};
-                
-                if (response.ok && result.success) {
-                    this.showNotification('Sklad byl smazán', 'success');
-                    await this.loadAllWarehouses(); // Refresh table
-                    
-                    // Refresh calendar warehouse selector
-                    await this.loadWarehousesForSelector();
-                } else {
-                    throw new Error(result.error || 'Chyba při mazání skladu');
-                }
-            } catch (error) {
-                this.showNotification('Chyba při mazání: ' + error.message, 'error');
-            }
-        }
-    }
-
-    async loadAllUsers() {
-        console.log('CRMApp: Loading all users...');
-        this.showNotification('Načítání uživatelů - TODO', 'info');
-    }
-
-    async loadWarehousesForForm(selectId) {
-        try {
-            const response = await fetch(`${this.apiBase}/warehouses.php`, {
-                credentials: 'include',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            
-            if (response.ok) {
-                const text = await response.text();
-                if (text) {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        const select = document.getElementById(selectId);
-                        if (select) {
-                            select.innerHTML = '<option value="">Vyberte sklad</option>';
-                            
-                            data.warehouses.forEach(warehouse => {
-                                const option = document.createElement('option');
-                                option.value = warehouse.id;
-                                option.textContent = warehouse.name;
-                                select.appendChild(option);
-                            });
-                        }
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load warehouses:', error);
-        }
-    }
-
-    // Modal Management
-    showModal(modalId, data = null) {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.add('active');
-            if (data) {
-                this.populateModalData(modalId, data);
-            }
-        }
-    }
-
-    closeModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (modal) {
-            modal.classList.remove('active');
-        }
-    }
-
-    populateModalData(modalId, data) {
-        const modal = document.getElementById(modalId);
-        if (!modal) return;
-
-        Object.entries(data).forEach(([key, value]) => {
-            const field = modal.querySelector(`[name="${key}"], #${key}`);
-            if (field) {
-                field.value = value;
-            }
-        });
-    }
-
-    // Modal Methods with calendar integration
-    showBookingModal(slotId = null) {
-        this.showModal('bookingModal');
-        
-        if (slotId) {
-            const slotSelect = document.getElementById('booking_slot');
-            if (slotSelect) {
-                slotSelect.value = slotId;
-            }
-        }
-        
-        this.loadWarehousesForForm('booking_warehouse');
-    }
-
-    showNewSlotModal() {
-        this.showModal('newSlotModal');
-        this.loadWarehousesForForm('slot_warehouse');
-        
-        // Set default date to today
-        const dateInput = document.getElementById('slot_date');
-        if (dateInput) {
-            dateInput.value = new Date().toISOString().split('T')[0];
-        }
-        
-        // If calendar is active and has selected date, use that
-        if (window.calendarManager && window.calendarManager.selectedDate) {
-            const selectedDateStr = window.calendarManager.selectedDate.toISOString().split('T')[0];
-            if (dateInput) {
-                dateInput.value = selectedDateStr;
-            }
-        }
-    }
-
-    showAddUserModal() {
-        console.log('CRMApp: Show add user modal');
-        this.showModal('addUserModal');
-    }
-
-    showAddWarehouseModal() {
-        console.log('CRMApp: Show add warehouse modal');
-        this.showModal('addWarehouseModal');
-    }
-
-    // Calendar specific methods
-    refreshCalendarAfterChange() {
-        if (window.calendarManager && document.getElementById('calendar').classList.contains('active')) {
-            window.calendarManager.generateCalendar();
-        }
-    }
-
-    // Enhanced slot creation with calendar integration
-    async createSlotFromCalendar(date, time, warehouseId) {
-        const slotData = {
-            warehouse_id: warehouseId,
-            slot_date: date,
-            slot_time: time + ':00',
-            duration_minutes: 60,
-            max_capacity: 1,
-            slot_type: 'unloading',
-            notes: ''
-        };
-
-        if (window.calendarManager) {
-            return await window.calendarManager.createSlot(slotData);
-        }
-        
-        return null;
+        console.log('Editing booking:', bookingId);
+        // Implementation for editing booking
     }
 }
 
-// Global instance
-let crmApp = null;
-
-// Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    crmApp = new CRMApp();
-    
-    // Make it globally available
-    window.crmApp = crmApp;
-});
-
-// Global functions for backward compatibility
+// Global functions for backward compatibility and HTML onclick handlers
 function showSection(sectionName) {
-    if (crmApp) crmApp.showSection(sectionName);
+    if (window.crmApp) {
+        window.crmApp.showSection(sectionName);
+    }
 }
 
 function logout() {
-    if (window.authManager) {
-        window.authManager.logout();
+    if (confirm('Opravdu se chcete odhlásit?')) {
+        window.location.href = 'logout.php';
     }
 }
 
 function refreshDashboard() {
-    if (crmApp) crmApp.refreshDashboard();
+    if (window.crmApp) {
+        window.crmApp.refreshDashboard();
+    }
+}
+
+function refreshCalendar() {
+    if (window.logisticsCalendar) {
+        window.logisticsCalendar.refresh();
+        window.crmApp?.showNotification('Kalendář byl obnoven', 'success');
+    }
 }
 
 function createNewSlot() {
-    if (crmApp) crmApp.createNewSlot();
+    if (window.crmApp) {
+        window.crmApp.createNewSlot();
+    }
 }
 
 function addUser() {
-    if (crmApp) crmApp.addUser();
+    if (window.crmApp) {
+        window.crmApp.addUser();
+    }
 }
 
 function exportData() {
-    if (crmApp) crmApp.exportData();
-}
-
-function viewBookingDetail(id) {
-    if (crmApp) crmApp.viewBookingDetail(id);
-}
-
-function editBooking(id) {
-    if (crmApp) crmApp.editBooking(id);
-}
-
-function editSlot(id) {
-    if (crmApp) crmApp.editSlot(id);
-}
-
-function deleteSlot(id) {
-    if (crmApp) crmApp.deleteSlot(id);
-}
-
-function toggleNotifications() {
-    if (crmApp) crmApp.toggleNotifications();
-}
-
-function showBookingModal(slotId = null) {
-    if (crmApp) crmApp.showBookingModal(slotId);
+    if (window.crmApp) {
+        window.crmApp.exportData();
+    }
 }
 
 function showNewSlotModal() {
-    if (crmApp) crmApp.showNewSlotModal();
+    if (window.crmApp) {
+        window.crmApp.showNewSlotModal();
+    }
 }
 
 function closeModal(modalId) {
-    if (crmApp) crmApp.closeModal(modalId);
+    if (window.crmApp) {
+        window.crmApp.closeModal(modalId);
+    }
 }
 
 function showAddUserModal() {
-    if (crmApp) crmApp.showAddUserModal();
+    if (window.crmApp) {
+        window.crmApp.showModal('addUserModal');
+    }
 }
 
 function showAddWarehouseModal() {
-    if (crmApp) crmApp.showAddWarehouseModal();
+    if (window.crmApp) {
+        window.crmApp.showModal('addWarehouseModal');
+    }
 }
 
+function editSlot(id) {
+    if (window.crmApp) {
+        window.crmApp.editSlot(id);
+    }
+}
+
+function deleteSlot(id) {
+    if (window.crmApp) {
+        window.crmApp.deleteSlot(id);
+    }
+}
+
+function viewBookingDetail(id) {
+    if (window.crmApp) {
+        window.crmApp.viewBookingDetail(id);
+    }
+}
+
+function editBooking(id) {
+    if (window.crmApp) {
+        window.crmApp.editBooking(id);
+    }
+}
+
+function toggleNotifications() {
+    console.log('Toggle notifications - functionality to be implemented');
+}
+
+// Booking action functions
 function confirmBooking(id) {
+    console.log('Confirming booking:', id);
     if (window.bookingManager) {
         window.bookingManager.confirmBooking(id);
     }
 }
 
 function rejectBooking(id) {
+    console.log('Rejecting booking:', id);
     if (window.bookingManager) {
         window.bookingManager.rejectBooking(id);
     }
 }
 
 function startBooking(id) {
+    console.log('Starting booking:', id);
     if (window.bookingManager) {
         window.bookingManager.startBooking(id);
     }
 }
 
 function completeBooking(id) {
+    console.log('Completing booking:', id);
     if (window.bookingManager) {
         window.bookingManager.completeBooking(id);
     }
 }
 
-console.log('✅ CRMApp: Module loaded successfully with calendar integration');
+// Filter functions
+function filterBookings(status) {
+    if (window.bookingManager) {
+        window.bookingManager.filterBookings(status);
+    }
+}
+
+function filterSlotsByDate(date) {
+    const rows = document.querySelectorAll('#slotsTableBody tr');
+    
+    rows.forEach(row => {
+        if (!date) {
+            row.style.display = '';
+        } else {
+            const dateCell = row.cells[0];
+            if (dateCell && dateCell.textContent.includes(date)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    });
+}
+
+// Initialize application
+let crmApp;
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initializing CRM Application...');
+    
+    // Initialize main CRM app
+    crmApp = new CRMApp();
+    
+    // Make globally available
+    window.crmApp = crmApp;
+    
+    console.log('✅ CRM Application initialized successfully');
+});
+
+// Global reference for other scripts
+window.crmApp = crmApp;

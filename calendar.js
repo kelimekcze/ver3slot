@@ -1,17 +1,45 @@
-// js/calendar.js - Calendar and Slots Management (KOMPLETNÍ S AUTO-REFRESH)
-class CalendarManager {
+// js/calendar.js - Modern Drag & Drop Logistics Planning Calendar
+class LogisticsCalendar {
     constructor() {
-        this.currentDate = new Date();
-        this.selectedDate = null;
+        this.currentWeekStart = this.getWeekStart(new Date());
+        this.selectedWarehouse = null;
         this.apiBase = this.getApiBasePath();
+        this.draggedSlot = null;
+        this.touchStartPos = null;
+        
+        // Time configuration
+        this.startHour = 6;
+        this.endHour = 22;
+        this.slotDuration = 60; // minutes
+        
+        // Slot statuses with colors
+        this.slotStatuses = {
+            'reserved': { label: 'Rezervováno', color: '#3b82f6', bgColor: '#dbeafe' },
+            'loaded': { label: 'Naloženo', color: '#10b981', bgColor: '#d1fae5' },
+            'arrived': { label: 'Přijel', color: '#f59e0b', bgColor: '#fef3c7' },
+            'canceled': { label: 'Zrušeno', color: '#ef4444', bgColor: '#fecaca' },
+            'loading': { label: 'Nakládá se', color: '#8b5cf6', bgColor: '#ede9fe' }
+        };
+        
+        this.dayNames = ['Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota', 'Neděle'];
         this.monthNames = [
             'Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
             'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'
         ];
-        this.dayNames = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+        
+        this.init();
     }
 
-    // Automatické určení správné cesty k API
+    // Initialize calendar
+    init() {
+        this.createCalendarHTML();
+        this.setupEventListeners();
+        this.loadWarehouses();
+        this.generateWeeklyCalendar();
+        this.loadSlots();
+    }
+
+    // Get API base path
     getApiBasePath() {
         const currentPath = window.location.pathname;
         if (currentPath.includes('/js/') || currentPath.includes('/css/')) {
@@ -20,370 +48,638 @@ class CalendarManager {
         return 'api';
     }
 
-    generateCalendar() {
-        const year = this.currentDate.getFullYear();
-        const month = this.currentDate.getMonth();
-        
-        this.updateMonthDisplay(year, month);
-        this.renderCalendarDays(year, month);
+    // Get start of week (Monday)
+    getWeekStart(date) {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        return new Date(d.setDate(diff));
     }
 
-    updateMonthDisplay(year, month) {
-        const monthElement = document.getElementById('currentMonth');
-        if (monthElement) {
-            monthElement.textContent = `${this.monthNames[month]} ${year}`;
-        }
-    }
+    // Create calendar HTML structure
+    createCalendarHTML() {
+        const calendarContainer = document.getElementById('timeSlotsGrid') || document.getElementById('calendarGrid');
+        if (!calendarContainer) return;
 
-    renderCalendarDays(year, month) {
-        const calendarGrid = document.getElementById('calendarGrid');
-        if (!calendarGrid) return;
-
-        calendarGrid.innerHTML = '';
-        
-        // Add day headers
-        this.dayNames.forEach(day => {
-            const dayHeader = document.createElement('div');
-            dayHeader.style.fontWeight = 'bold';
-            dayHeader.style.textAlign = 'center';
-            dayHeader.style.padding = '10px';
-            dayHeader.style.fontSize = '14px';
-            dayHeader.style.color = '#666';
-            dayHeader.textContent = day;
-            calendarGrid.appendChild(dayHeader);
-        });
-        
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
-        const startDate = new Date(firstDay);
-        
-        // Adjust for Monday start (0 = Sunday, 1 = Monday)
-        const dayOfWeek = firstDay.getDay();
-        const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        startDate.setDate(startDate.getDate() - mondayOffset);
-        
-        // Generate 42 days (6 weeks)
-        for (let i = 0; i < 42; i++) {
-            const date = new Date(startDate);
-            date.setDate(startDate.getDate() + i);
-            
-            const dayElement = this.createDayElement(date, month);
-            calendarGrid.appendChild(dayElement);
-        }
-    }
-
-    createDayElement(date, currentMonth) {
-        const dayElement = document.createElement('div');
-        dayElement.className = 'calendar-day';
-        dayElement.textContent = date.getDate();
-        
-        // Style for dates outside current month
-        if (date.getMonth() !== currentMonth) {
-            dayElement.style.opacity = '0.3';
-            dayElement.style.cursor = 'default';
-        }
-        
-        // Highlight today
-        if (this.isToday(date)) {
-            dayElement.style.background = '#667eea';
-            dayElement.style.color = 'white';
-            dayElement.style.fontWeight = 'bold';
-        }
-        
-        // Highlight selected date
-        if (this.selectedDate && this.isSameDate(date, this.selectedDate)) {
-            dayElement.classList.add('selected');
-        }
-        
-        // Add click event for current month dates only
-        if (date.getMonth() === currentMonth) {
-            dayElement.addEventListener('click', () => {
-                this.selectDate(date, dayElement);
-            });
-        }
-        
-        return dayElement;
-    }
-
-    selectDate(date, dayElement) {
-        // Remove previous selection
-        document.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
-        
-        // Add selection to clicked day
-        dayElement.classList.add('selected');
-        
-        this.selectedDate = date;
-        this.loadSlotsForDate(date);
-    }
-
-    async loadSlotsForDate(date) {
-        const dateStr = date.toISOString().split('T')[0];
-        
-        try {
-            const response = await fetch(`${this.apiBase}/slots.php?date=${dateStr}`, {
-                credentials: 'include'
-            });
-            
-            if (response.ok) {
-                const text = await response.text();
-                if (text) {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        this.updateTimeSlotsGrid(data.slots);
-                    } else {
-                        throw new Error(data.error || 'Chyba při načítání slotů');
-                    }
-                }
-            } else {
-                throw new Error('Chyba při komunikaci se serverem');
-            }
-        } catch (error) {
-            console.error('Failed to load slots for date:', error);
-            const grid = document.getElementById('timeSlotsGrid');
-            if (grid) {
-                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #666;">Chyba při načítání slotů</div>';
-            }
-        }
-    }
-
-    updateTimeSlotsGrid(slots) {
-        const grid = document.getElementById('timeSlotsGrid');
-        if (!grid) return;
-
-        if (slots.length === 0) {
-            grid.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #666;">
-                    <i class="fas fa-calendar-times" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
-                    <p>Žádné sloty pro vybraný den</p>
-                    <button class="btn btn-small" onclick="crmApp.showNewSlotModal()" style="margin-top: 15px;">
-                        <i class="fas fa-plus"></i> Vytvořit slot
-                    </button>
+        calendarContainer.innerHTML = `
+            <div class="logistics-calendar">
+                <!-- Calendar Header -->
+                <div class="calendar-header-controls">
+                    <div class="week-navigation">
+                        <button class="nav-btn" id="prevWeek">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <div class="current-week" id="currentWeek"></div>
+                        <button class="nav-btn" id="nextWeek">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="calendar-actions">
+                        <select class="warehouse-selector" id="warehouseSelector">
+                            <option value="">Všechny sklady</option>
+                        </select>
+                        <button class="today-btn" id="todayBtn">Dnes</button>
+                        <button class="btn btn-small btn-success" id="newSlotBtn">
+                            <i class="fas fa-plus"></i> Nový slot
+                        </button>
+                    </div>
                 </div>
-            `;
-            return;
-        }
 
-        grid.innerHTML = slots.map(slot => this.createSlotCard(slot)).join('');
-    }
-
-    createSlotCard(slot) {
-        const available = slot.max_capacity - slot.current_bookings;
-        const isFull = available <= 0;
-        const startTime = slot.slot_time.substring(0, 5);
-        const endTime = this.addMinutes(slot.slot_time, slot.duration_minutes);
-        
-        return `
-            <div class="time-slot ${isFull ? 'full' : ''}" data-slot-id="${slot.id}">
-                <div class="slot-time">${startTime} - ${endTime}</div>
-                <div class="slot-info">
-                    <span>${this.getSlotTypeText(slot.slot_type)}</span>
-                    <span class="slot-capacity ${isFull ? 'full' : ''}">${available}/${slot.max_capacity} volné</span>
+                <!-- Status Legend -->
+                <div class="status-legend">
+                    ${Object.entries(this.slotStatuses).map(([key, status]) => `
+                        <div class="status-item">
+                            <div class="status-color" style="background: ${status.bgColor}; border-color: ${status.color}"></div>
+                            <span>${status.label}</span>
+                        </div>
+                    `).join('')}
                 </div>
-                <div style="font-weight: 500; margin: 10px 0;">${slot.warehouse_name}</div>
-                ${slot.notes ? `<div style="font-size: 12px; color: #666; margin-top: 10px;">${slot.notes}</div>` : ''}
-                <div class="slot-actions" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-                    ${this.getSlotActions(slot, available)}
+
+                <!-- Calendar Grid -->
+                <div class="calendar-container">
+                    <div class="calendar-grid" id="calendarGrid">
+                        <!-- Will be generated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slot Booking Modal -->
+            <div class="modal" id="slotBookingModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2 class="modal-title">Vytvořit nový slot</h2>
+                        <button class="close-btn" onclick="logisticsCalendar.closeBookingModal()">×</button>
+                    </div>
+                    <form id="slotBookingForm">
+                        <div class="form-group">
+                            <label for="slotWarehouse">Sklad *</label>
+                            <select id="slotWarehouse" required>
+                                <option value="">Vyberte sklad</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="slotDate">Datum *</label>
+                                <input type="date" id="slotDate" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="slotTime">Čas *</label>
+                                <input type="time" id="slotTime" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="slotDuration">Délka (minuty) *</label>
+                                <select id="slotDuration" required>
+                                    <option value="30">30 minut</option>
+                                    <option value="60" selected>60 minut</option>
+                                    <option value="90">90 minut</option>
+                                    <option value="120">120 minut</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="slotCapacity">Kapacita *</label>
+                                <input type="number" id="slotCapacity" min="1" max="10" value="1" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="slotType">Typ operace *</label>
+                            <select id="slotType" required>
+                                <option value="loading">Nakládka</option>
+                                <option value="unloading" selected>Vykládka</option>
+                                <option value="both">Nakládka/Vykládka</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="slotOrderNumber">Číslo objednávky</label>
+                            <input type="text" id="slotOrderNumber" placeholder="např. ORD-2024-001">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="slotNotes">Poznámky</label>
+                            <textarea id="slotNotes" rows="3" placeholder="Dodatečné informace..."></textarea>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-outline" onclick="logisticsCalendar.closeBookingModal()">
+                                Zrušit
+                            </button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Vytvořit slot
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         `;
     }
 
-    getSlotActions(slot, available) {
-        const actions = [];
+    // Setup event listeners
+    setupEventListeners() {
+        // Week navigation
+        document.getElementById('prevWeek')?.addEventListener('click', () => this.changeWeek(-1));
+        document.getElementById('nextWeek')?.addEventListener('click', () => this.changeWeek(1));
+        document.getElementById('todayBtn')?.addEventListener('click', () => this.goToToday());
         
-        // Book slot action (for drivers and when available)
-        if (available > 0 && window.crmApp && window.crmApp.currentUser) {
-            if (window.crmApp.currentUser.user_type === 'driver') {
-                actions.push(`
-                    <button class="btn btn-small btn-success" onclick="event.stopPropagation(); calendarManager.bookSlot(${slot.id})">
-                        <i class="fas fa-plus"></i> Rezervovat
-                    </button>
-                `);
-            }
-        }
+        // Warehouse selector
+        document.getElementById('warehouseSelector')?.addEventListener('change', (e) => {
+            this.selectedWarehouse = e.target.value || null;
+            this.loadSlots();
+        });
         
-        // Admin actions
-        if (window.crmApp && window.crmApp.currentUser && ['admin', 'logistics', 'super_admin'].includes(window.crmApp.currentUser.user_type)) {
-            actions.push(`
-                <button class="btn btn-small btn-secondary" onclick="event.stopPropagation(); calendarManager.editSlot(${slot.id})">
-                    <i class="fas fa-edit"></i> Upravit
-                </button>
-            `);
+        // New slot button
+        document.getElementById('newSlotBtn')?.addEventListener('click', () => this.showBookingModal());
+        
+        // Slot booking form
+        document.getElementById('slotBookingForm')?.addEventListener('submit', (e) => this.handleSlotCreation(e));
+    }
+
+    // Generate weekly calendar grid
+    generateWeeklyCalendar() {
+        const grid = document.getElementById('calendarGrid');
+        if (!grid) return;
+
+        // Update week display
+        this.updateWeekDisplay();
+
+        // Clear existing content
+        grid.innerHTML = '';
+
+        // Create header row
+        const headerRow = document.createElement('div');
+        headerRow.className = 'calendar-header-row';
+        
+        // Time column header
+        const timeHeader = document.createElement('div');
+        timeHeader.className = 'time-header';
+        timeHeader.textContent = 'Čas';
+        headerRow.appendChild(timeHeader);
+
+        // Day headers
+        for (let i = 0; i < 7; i++) {
+            const date = new Date(this.currentWeekStart);
+            date.setDate(date.getDate() + i);
             
-            if (slot.current_bookings === 0) {
-                actions.push(`
-                    <button class="btn btn-small btn-danger" onclick="event.stopPropagation(); calendarManager.deleteSlot(${slot.id})">
-                        <i class="fas fa-trash"></i> Smazat
-                    </button>
-                `);
+            const dayHeader = document.createElement('div');
+            dayHeader.className = 'day-header';
+            dayHeader.innerHTML = `
+                <div class="day-name">${this.dayNames[i]}</div>
+                <div class="day-date">${date.getDate()}.${date.getMonth() + 1}</div>
+            `;
+            
+            // Highlight today
+            if (this.isToday(date)) {
+                dayHeader.classList.add('today');
             }
+            
+            headerRow.appendChild(dayHeader);
         }
         
-        // Show bookings button
+        grid.appendChild(headerRow);
+
+        // Create time rows
+        for (let hour = this.startHour; hour < this.endHour; hour++) {
+            const timeRow = document.createElement('div');
+            timeRow.className = 'calendar-time-row';
+            
+            // Time cell
+            const timeCell = document.createElement('div');
+            timeCell.className = 'time-cell';
+            timeCell.textContent = `${String(hour).padStart(2, '0')}:00`;
+            timeRow.appendChild(timeCell);
+
+            // Day cells for this hour
+            for (let day = 0; day < 7; day++) {
+                const date = new Date(this.currentWeekStart);
+                date.setDate(date.getDate() + day);
+                
+                const dayCell = document.createElement('div');
+                dayCell.className = 'day-cell';
+                dayCell.dataset.date = date.toISOString().split('T')[0];
+                dayCell.dataset.hour = hour;
+                
+                // Add drop zone
+                this.makeDropZone(dayCell, date, hour);
+                
+                // Add click listener for new slot creation
+                dayCell.addEventListener('click', () => this.showBookingModal(date, hour));
+                
+                timeRow.appendChild(dayCell);
+            }
+            
+            grid.appendChild(timeRow);
+        }
+    }
+
+    // Update week display
+    updateWeekDisplay() {
+        const weekElement = document.getElementById('currentWeek');
+        if (!weekElement) return;
+
+        const weekEnd = new Date(this.currentWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+
+        const startStr = `${this.currentWeekStart.getDate()}.${this.currentWeekStart.getMonth() + 1}.`;
+        const endStr = `${weekEnd.getDate()}.${weekEnd.getMonth() + 1}.${weekEnd.getFullYear()}`;
+        
+        weekElement.textContent = `${startStr} - ${endStr}`;
+    }
+
+    // Load warehouses for selectors
+    async loadWarehouses() {
+        try {
+            const response = await fetch(`${this.apiBase}/warehouses.php`, {
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.populateWarehouseSelectors(data.warehouses);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load warehouses:', error);
+        }
+    }
+
+    // Populate warehouse selectors
+    populateWarehouseSelectors(warehouses) {
+        const selectors = ['warehouseSelector', 'slotWarehouse'];
+        
+        selectors.forEach(selectorId => {
+            const selector = document.getElementById(selectorId);
+            if (!selector) return;
+            
+            // Keep the default option for warehouseSelector
+            if (selectorId === 'warehouseSelector') {
+                selector.innerHTML = '<option value="">Všechny sklady</option>';
+            } else {
+                selector.innerHTML = '<option value="">Vyberte sklad</option>';
+            }
+            
+            warehouses.forEach(warehouse => {
+                const option = document.createElement('option');
+                option.value = warehouse.id;
+                option.textContent = warehouse.name;
+                selector.appendChild(option);
+            });
+        });
+    }
+
+    // Load slots for current week
+    async loadSlots() {
+        const weekStart = this.currentWeekStart.toISOString().split('T')[0];
+        const weekEnd = new Date(this.currentWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        const weekEndStr = weekEnd.toISOString().split('T')[0];
+
+        try {
+            let url = `${this.apiBase}/slots.php?date_from=${weekStart}&date_to=${weekEndStr}`;
+            if (this.selectedWarehouse) {
+                url += `&warehouse_id=${this.selectedWarehouse}`;
+            }
+
+            const response = await fetch(url, {
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.renderSlots(data.slots);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load slots:', error);
+        }
+    }
+
+    // Render slots in calendar
+    renderSlots(slots) {
+        // Clear existing slots
+        document.querySelectorAll('.slot-item').forEach(slot => slot.remove());
+
+        slots.forEach(slot => {
+            const slotDate = slot.slot_date;
+            const slotHour = parseInt(slot.slot_time.split(':')[0]);
+            const slotMinutes = parseInt(slot.slot_time.split(':')[1]);
+            
+            // Find the corresponding cell
+            const cell = document.querySelector(`[data-date="${slotDate}"][data-hour="${slotHour}"]`);
+            if (!cell) return;
+
+            const slotElement = this.createSlotElement(slot);
+            
+            // Position slot based on minutes
+            const minuteOffset = (slotMinutes / 60) * 100;
+            slotElement.style.top = `${minuteOffset}%`;
+            
+            cell.appendChild(slotElement);
+        });
+    }
+
+    // Create slot element
+    createSlotElement(slot) {
+        const slotElement = document.createElement('div');
+        slotElement.className = 'slot-item';
+        slotElement.draggable = true;
+        slotElement.dataset.slotId = slot.id;
+        
+        // Determine slot status based on bookings
+        let status = 'reserved';
         if (slot.current_bookings > 0) {
-            actions.push(`
-                <button class="btn btn-small btn-outline" onclick="event.stopPropagation(); calendarManager.showSlotBookings(${slot.id})">
-                    <i class="fas fa-eye"></i> Rezervace (${slot.current_bookings})
-                </button>
-            `);
+            // You can enhance this logic based on booking statuses
+            status = slot.booking_status || 'reserved';
         }
         
-        return actions.join('');
+        const statusConfig = this.slotStatuses[status] || this.slotStatuses.reserved;
+        
+        // Calculate duration height
+        const durationHeight = (slot.duration_minutes / 60) * 100;
+        slotElement.style.height = `${durationHeight}%`;
+        slotElement.style.background = statusConfig.bgColor;
+        slotElement.style.borderLeft = `4px solid ${statusConfig.color}`;
+        
+        const available = slot.max_capacity - slot.current_bookings;
+        const endTime = this.addMinutes(slot.slot_time, slot.duration_minutes);
+        
+        slotElement.innerHTML = `
+            <div class="slot-content">
+                <div class="slot-time">${slot.slot_time.substring(0, 5)} - ${endTime}</div>
+                <div class="slot-warehouse">${slot.warehouse_name}</div>
+                <div class="slot-type">${this.getSlotTypeText(slot.slot_type)}</div>
+                ${slot.notes ? `<div class="slot-order">${slot.notes}</div>` : ''}
+                <div class="slot-capacity">${available}/${slot.max_capacity} volné</div>
+            </div>
+            <div class="slot-actions">
+                <button class="slot-action-btn" onclick="logisticsCalendar.editSlot(${slot.id})" title="Upravit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="slot-action-btn delete" onclick="logisticsCalendar.deleteSlot(${slot.id})" title="Smazat">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+
+        // Setup drag and drop
+        this.setupSlotDragDrop(slotElement, slot);
+
+        return slotElement;
     }
 
-    bookSlot(slotId) {
-        if (window.crmApp) {
-            window.crmApp.showBookingModal(slotId);
+    // Setup drag and drop for slot
+    setupSlotDragDrop(slotElement, slot) {
+        // Mouse events
+        slotElement.addEventListener('dragstart', (e) => {
+            this.draggedSlot = slot;
+            e.dataTransfer.effectAllowed = 'move';
+            slotElement.classList.add('dragging');
+        });
+
+        slotElement.addEventListener('dragend', () => {
+            slotElement.classList.remove('dragging');
+            this.draggedSlot = null;
+            this.clearDropZones();
+        });
+
+        // Touch events for mobile
+        slotElement.addEventListener('touchstart', (e) => {
+            this.touchStartPos = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY
+            };
+            this.draggedSlot = slot;
+        });
+
+        slotElement.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!this.draggedSlot) return;
+
+            const touch = e.touches[0];
+            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            const dropZone = elementBelow?.closest('.day-cell');
             
-            // Pre-fill the slot in booking form
-            const slotSelect = document.getElementById('booking_slot');
-            if (slotSelect) {
-                slotSelect.innerHTML = `<option value="${slotId}" selected>Vybraný slot</option>`;
+            if (dropZone) {
+                this.highlightDropZone(dropZone);
+            }
+        });
+
+        slotElement.addEventListener('touchend', (e) => {
+            if (!this.draggedSlot) return;
+
+            const touch = e.changedTouches[0];
+            const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            const dropZone = elementBelow?.closest('.day-cell');
+            
+            if (dropZone) {
+                this.handleSlotDrop(dropZone);
             }
             
-            // Pre-fill the date
-            const dateInput = document.getElementById('booking_date');
-            if (dateInput && this.selectedDate) {
-                dateInput.value = this.selectedDate.toISOString().split('T')[0];
+            this.draggedSlot = null;
+            this.clearDropZones();
+        });
+    }
+
+    // Make cell a drop zone
+    makeDropZone(cell, date, hour) {
+        cell.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.highlightDropZone(cell);
+        });
+
+        cell.addEventListener('dragleave', () => {
+            cell.classList.remove('drop-highlight');
+        });
+
+        cell.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.handleSlotDrop(cell);
+        });
+    }
+
+    // Highlight drop zone
+    highlightDropZone(cell) {
+        this.clearDropZones();
+        cell.classList.add('drop-highlight');
+    }
+
+    // Clear drop zone highlights
+    clearDropZones() {
+        document.querySelectorAll('.drop-highlight').forEach(cell => {
+            cell.classList.remove('drop-highlight');
+        });
+    }
+
+    // Handle slot drop
+    async handleSlotDrop(dropCell) {
+        if (!this.draggedSlot) return;
+
+        const newDate = dropCell.dataset.date;
+        const newHour = parseInt(dropCell.dataset.hour);
+        const newTime = `${String(newHour).padStart(2, '0')}:00:00`;
+
+        // Check if moving to same position
+        if (newDate === this.draggedSlot.slot_date && newTime === this.draggedSlot.slot_time) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiBase}/slots.php`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    slot_id: this.draggedSlot.id,
+                    slot_date: newDate,
+                    slot_time: newTime
+                })
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                this.showSuccess('Slot byl úspěšně přesunut');
+                this.loadSlots(); // Reload to show updated position
+            } else {
+                throw new Error(result.error || 'Chyba při přesouvání slotu');
             }
+        } catch (error) {
+            this.showError(`Chyba při přesouvání: ${error.message}`);
         }
     }
 
+    // Show booking modal
+    showBookingModal(date = null, hour = null) {
+        const modal = document.getElementById('slotBookingModal');
+        if (!modal) return;
+
+        // Pre-fill date and time if provided
+        if (date) {
+            document.getElementById('slotDate').value = date.toISOString().split('T')[0];
+        }
+        if (hour !== null) {
+            document.getElementById('slotTime').value = `${String(hour).padStart(2, '0')}:00`;
+        }
+
+        modal.classList.add('active');
+    }
+
+    // Close booking modal
+    closeBookingModal() {
+        const modal = document.getElementById('slotBookingModal');
+        if (modal) {
+            modal.classList.remove('active');
+            document.getElementById('slotBookingForm').reset();
+        }
+    }
+
+    // Handle slot creation
+    async handleSlotCreation(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const slotData = {
+            warehouse_id: document.getElementById('slotWarehouse').value,
+            slot_date: document.getElementById('slotDate').value,
+            slot_time: document.getElementById('slotTime').value + ':00',
+            duration_minutes: parseInt(document.getElementById('slotDuration').value),
+            max_capacity: parseInt(document.getElementById('slotCapacity').value),
+            slot_type: document.getElementById('slotType').value,
+            notes: document.getElementById('slotOrderNumber').value 
+                ? `${document.getElementById('slotOrderNumber').value}${document.getElementById('slotNotes').value ? ' - ' + document.getElementById('slotNotes').value : ''}`
+                : document.getElementById('slotNotes').value
+        };
+
+        try {
+            const response = await fetch(`${this.apiBase}/slots.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify(slotData)
+            });
+
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                this.showSuccess('Slot byl úspěšně vytvořen');
+                this.closeBookingModal();
+                this.loadSlots();
+            } else {
+                throw new Error(result.error || 'Chyba při vytváření slotu');
+            }
+        } catch (error) {
+            this.showError(`Chyba při vytváření: ${error.message}`);
+        }
+    }
+
+    // Edit slot
     editSlot(slotId) {
-        if (window.crmApp) {
+        if (window.crmApp && window.crmApp.editSlot) {
             window.crmApp.editSlot(slotId);
         }
     }
 
-    // OPRAVENÁ FUNKCE S AUTO-REFRESH
+    // Delete slot
     async deleteSlot(slotId) {
-        if (confirm('Opravdu smazat tento slot?')) {
-            try {
-                const response = await fetch(`${this.apiBase}/slots.php`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify({ slot_id: slotId })
-                });
+        if (!confirm('Opravdu smazat tento slot?')) return;
 
-                const text = await response.text();
-                const result = text ? JSON.parse(text) : {};
-                
-                if (response.ok && result.success) {
-                    this.showSuccess('Slot byl smazán');
-                    
-                    // AUTO-REFRESH: Refresh slots tabulky pokud jsme na slots stránce
-                    if (window.crmApp && document.getElementById('slots').classList.contains('active')) {
-                        await window.crmApp.loadAllSlots();
-                    }
-                    
-                    // AUTO-REFRESH: Refresh kalendář pokud je vybraný datum
-                    if (this.selectedDate) {
-                        await this.loadSlotsForDate(this.selectedDate);
-                    }
-                    
-                } else {
-                    throw new Error(result.error || 'Chyba při mazání slotu');
-                }
-            } catch (error) {
-                this.showError(`Chyba při mazání: ${error.message}`);
-            }
-        }
-    }
-
-    async showSlotBookings(slotId) {
         try {
-            const response = await fetch(`${this.apiBase}/bookings.php?slot_id=${slotId}`, {
-                credentials: 'include'
+            const response = await fetch(`${this.apiBase}/slots.php`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({ slot_id: slotId })
             });
+
+            const result = await response.json();
             
-            if (response.ok) {
-                const text = await response.text();
-                if (text) {
-                    const data = JSON.parse(text);
-                    if (data.success) {
-                        this.displaySlotBookingsModal(data.bookings);
-                    } else {
-                        throw new Error(data.error || 'Chyba při načítání rezervací');
-                    }
-                }
+            if (response.ok && result.success) {
+                this.showSuccess('Slot byl smazán');
+                this.loadSlots();
             } else {
-                throw new Error('Chyba při komunikaci se serverem');
+                throw new Error(result.error || 'Chyba při mazání slotu');
             }
         } catch (error) {
-            this.showError(`Chyba při načítání rezervací: ${error.message}`);
+            this.showError(`Chyba při mazání: ${error.message}`);
         }
     }
 
-    displaySlotBookingsModal(bookings) {
-        // Create a simple modal to show slot bookings
-        const modalHtml = `
-            <div class="modal active" id="slotBookingsModal" style="z-index: 1001;">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2 class="modal-title">Rezervace slotu</h2>
-                        <button class="close-btn" onclick="calendarManager.closeSlotBookingsModal()">×</button>
-                    </div>
-                    <div style="max-height: 400px; overflow-y: auto;">
-                        ${bookings.map(booking => `
-                            <div class="booking-item" style="margin-bottom: 15px; padding: 15px; border: 1px solid #eee; border-radius: 8px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div>
-                                        <strong>${booking.driver_name}</strong><br>
-                                        <small>SPZ: ${booking.truck_license_plate}</small><br>
-                                        ${booking.cargo_type ? `<small>Náklad: ${booking.cargo_type}</small>` : ''}
-                                    </div>
-                                    <span class="booking-status ${this.getStatusClass(booking.booking_status)}">
-                                        ${this.getStatusText(booking.booking_status)}
-                                    </span>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    // Navigation methods
+    changeWeek(direction) {
+        this.currentWeekStart.setDate(this.currentWeekStart.getDate() + (direction * 7));
+        this.generateWeeklyCalendar();
+        this.loadSlots();
     }
 
-    closeSlotBookingsModal() {
-        const modal = document.getElementById('slotBookingsModal');
-        if (modal) {
-            modal.remove();
-        }
-    }
-
-    changeMonth(direction) {
-        this.currentDate.setMonth(this.currentDate.getMonth() + direction);
-        this.generateCalendar();
-        
-        // Clear selected date and slots when changing month
-        this.selectedDate = null;
-        const grid = document.getElementById('timeSlotsGrid');
-        if (grid) {
-            grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #666;">Vyberte den pro zobrazení slotů</div>';
-        }
+    goToToday() {
+        this.currentWeekStart = this.getWeekStart(new Date());
+        this.generateWeeklyCalendar();
+        this.loadSlots();
     }
 
     // Utility methods
     isToday(date) {
         const today = new Date();
-        return this.isSameDate(date, today);
-    }
-
-    isSameDate(date1, date2) {
-        return date1.getFullYear() === date2.getFullYear() &&
-               date1.getMonth() === date2.getMonth() &&
-               date1.getDate() === date2.getDate();
+        return date.toDateString() === today.toDateString();
     }
 
     addMinutes(time, minutes) {
         const [hours, mins] = time.split(':').map(Number);
         const totalMinutes = hours * 60 + mins + minutes;
-        const newHours = Math.floor(totalMinutes / 60);
+        const newHours = Math.floor(totalMinutes / 60) % 24;
         const newMins = totalMinutes % 60;
         return `${String(newHours).padStart(2, '0')}:${String(newMins).padStart(2, '0')}`;
     }
@@ -395,28 +691,6 @@ class CalendarManager {
             both: 'Nakládka/Vykládka'
         };
         return texts[type] || type;
-    }
-
-    getStatusClass(status) {
-        const classes = {
-            pending: 'status-pending',
-            confirmed: 'status-confirmed',
-            in_progress: 'status-in-progress',
-            completed: 'status-completed',
-            cancelled: 'status-cancelled'
-        };
-        return classes[status] || 'status-pending';
-    }
-
-    getStatusText(status) {
-        const texts = {
-            pending: 'Čeká na potvrzení',
-            confirmed: 'Potvrzeno',
-            in_progress: 'Probíhá',
-            completed: 'Dokončeno',
-            cancelled: 'Zrušeno'
-        };
-        return texts[status] || 'Neznámý';
     }
 
     showError(message) {
@@ -435,178 +709,61 @@ class CalendarManager {
         }
     }
 
-    // Quick date navigation
-    goToToday() {
-        this.currentDate = new Date();
-        this.generateCalendar();
-        
-        // Auto-select today
-        const today = new Date();
-        this.selectedDate = today;
-        this.loadSlotsForDate(today);
+    // Public methods for external access
+    refresh() {
+        this.loadSlots();
     }
 
-    goToDate(date) {
-        this.currentDate = new Date(date);
-        this.generateCalendar();
-        this.selectedDate = new Date(date);
-        this.loadSlotsForDate(this.selectedDate);
-    }
-
-    // ENHANCED: Refresh after slot creation
-    async refreshAfterSlotAction() {
-        // Refresh slots tabulky pokud jsme na slots stránce
-        if (window.crmApp && document.getElementById('slots').classList.contains('active')) {
-            await window.crmApp.loadAllSlots();
+    setSelectedWarehouse(warehouseId) {
+        this.selectedWarehouse = warehouseId;
+        const selector = document.getElementById('warehouseSelector');
+        if (selector) {
+            selector.value = warehouseId || '';
         }
-        
-        // Refresh kalendář pokud je vybraný datum
-        if (this.selectedDate) {
-            await this.loadSlotsForDate(this.selectedDate);
-        }
-        
-        // Refresh dashboard stats
-        if (window.crmApp && document.getElementById('dashboard').classList.contains('active')) {
-            await window.crmApp.loadDashboardData();
-        }
-    }
-
-    // Bulk slot operations
-    async createMultipleSlots(templateSlot, dates) {
-        const results = {
-            success: 0,
-            failed: 0,
-            errors: []
-        };
-
-        for (const date of dates) {
-            try {
-                const slotData = {
-                    ...templateSlot,
-                    slot_date: date.toISOString().split('T')[0]
-                };
-
-                const response = await fetch(this.apiBase + '/slots.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    credentials: 'include',
-                    body: JSON.stringify(slotData)
-                });
-
-                const text = await response.text();
-                const result = text ? JSON.parse(text) : {};
-                
-                if (response.ok && result.success) {
-                    results.success++;
-                } else {
-                    results.failed++;
-                    results.errors.push(`${date.toLocaleDateString('cs-CZ')}: ${result.error}`);
-                }
-            } catch (error) {
-                results.failed++;
-                results.errors.push(`${date.toLocaleDateString('cs-CZ')}: ${error.message}`);
-            }
-        }
-
-        // Show summary
-        let message = `Vytvořeno slotů: ${results.success}, Chyby: ${results.failed}`;
-        if (results.errors.length > 0) {
-            message += '\nChyby:\n' + results.errors.slice(0, 3).join('\n');
-            if (results.errors.length > 3) {
-                message += `\n... a ${results.errors.length - 3} dalších`;
-            }
-        }
-
-        this.showSuccess(message);
-        
-        // Refresh all views
-        await this.refreshAfterSlotAction();
-    }
-
-    // Real-time updates support
-    handleSlotUpdate(slotData) {
-        // Called when slot is updated via websocket or polling
-        if (this.selectedDate) {
-            this.loadSlotsForDate(this.selectedDate);
-        }
-    }
-
-    handleBookingUpdate(bookingData) {
-        // Called when booking is updated
-        if (this.selectedDate) {
-            this.loadSlotsForDate(this.selectedDate);
-        }
-    }
-
-    // Performance optimizations
-    debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-
-    // Enhanced error handling
-    async safeApiCall(apiCall, fallbackMessage = 'Operace selhala') {
-        try {
-            return await apiCall();
-        } catch (error) {
-            console.error('API call failed:', error);
-            this.showError(`${fallbackMessage}: ${error.message}`);
-            return null;
-        }
+        this.loadSlots();
     }
 }
 
-// Initialize calendar manager
-const calendarManager = new CalendarManager();
+// Initialize calendar when DOM is loaded
+let logisticsCalendar;
 
-// Make it globally available
-window.calendarManager = calendarManager;
+function initLogisticsCalendar() {
+    logisticsCalendar = new LogisticsCalendar();
+}
 
-// Global calendar functions
+// Auto-initialize if DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initLogisticsCalendar);
+} else {
+    initLogisticsCalendar();
+}
+
+// Export for backwards compatibility
+window.logisticsCalendar = logisticsCalendar;
+
+// Legacy function wrappers for compatibility
 function changeMonth(direction) {
-    calendarManager.changeMonth(direction);
+    if (logisticsCalendar) {
+        logisticsCalendar.changeWeek(direction);
+    }
 }
 
 function goToToday() {
-    calendarManager.goToToday();
-}
-
-function selectSlot(slotId) {
-    if (window.crmApp && window.crmApp.currentUser && window.crmApp.currentUser.user_type === 'driver') {
-        calendarManager.bookSlot(slotId);
-    } else {
-        calendarManager.showError('Pouze řidiči mohou rezervovat sloty');
+    if (logisticsCalendar) {
+        logisticsCalendar.goToToday();
     }
 }
 
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    // Generate calendar when calendar section becomes active
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
-                const calendarSection = document.getElementById('calendar');
-                if (calendarSection && calendarSection.classList.contains('active')) {
-                    calendarManager.generateCalendar();
-                }
-            }
-        });
-    });
-
-    // Start observing
-    const calendarSection = document.getElementById('calendar');
-    if (calendarSection) {
-        observer.observe(calendarSection, { attributes: true });
+// Global calendar manager reference for backwards compatibility
+window.calendarManager = {
+    refreshAfterSlotAction: () => logisticsCalendar?.refresh(),
+    loadSlotsForDate: (date) => logisticsCalendar?.loadSlots(),
+    selectDate: (date) => {
+        // Convert to week view containing this date
+        if (logisticsCalendar) {
+            logisticsCalendar.currentWeekStart = logisticsCalendar.getWeekStart(date);
+            logisticsCalendar.generateWeeklyCalendar();
+            logisticsCalendar.loadSlots();
+        }
     }
-
-    console.log('✅ CalendarManager: Initialized with auto-refresh support');
-});
+};
