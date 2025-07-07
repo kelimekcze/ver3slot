@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🔍 Debug Kalendář</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 2px solid #333; border-radius: 5px; }
+        .results { font-family: monospace; white-space: pre-wrap; background: #f5f5f5; padding: 15px; border-radius: 5px; max-height: 300px; overflow-y: auto; font-size: 12px; }
+        .success { border-color: green; background: #f0fff0; }
+        .error { border-color: red; background: #fff0f0; }
+        .warning { border-color: orange; background: #fff9f0; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+        .status { font-weight: bold; padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Kalendář API</h1>
+    
+    <div class="debug-section">
+        <h2>1. Test připojení k API</h2>
+        <button onclick="testAPI()">🧪 Test všech API</button>
+        <div id="api-status" class="status"></div>
+        <div id="api-results" class="results"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>2. Test JavaScript konzole</h2>
+        <button onclick="testConsole()">📝 Zkontroluj Console</button>
+        <div id="console-results" class="results">Otevři F12 → Console a podívej se na chyby!</div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>3. Test kalendářového JavaScriptu</h2>
+        <button onclick="testCalendarJS()">🗓️ Test kalendář JS</button>
+        <div id="calendar-results" class="results"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h2>4. Rychlý test vytvoření slotu</h2>
+        <button onclick="quickSlotTest()">⚡ Rychlý slot test</button>
+        <div id="slot-results" class="results"></div>
+    </div>
+    
+    <script>
+    let debugLog = '';
+    
+    function log(message) {
+        debugLog += new Date().toLocaleTimeString() + ': ' + message + '\n';
+        console.log(message);
+    }
+    
+    async function testAPI() {
+        const statusEl = document.getElementById('api-status');
+        const resultsEl = document.getElementById('api-results');
+        
+        statusEl.innerHTML = '🔄 Testuji API...';
+        resultsEl.innerHTML = 'Zahajuji testy...\n\n';
+        
+        // Test 1: Warehouses
+        try {
+            log('Testing warehouses API...');
+            const warehousesResponse = await fetch('../api/warehouses.php');
+            const warehousesData = await warehousesResponse.json();
+            
+            resultsEl.innerHTML += `✅ WAREHOUSES API (${warehousesResponse.status})\n`;
+            resultsEl.innerHTML += `Response: ${JSON.stringify(warehousesData, null, 2)}\n\n`;
+            
+            if (warehousesData.success && warehousesData.warehouses) {
+                resultsEl.innerHTML += `🏭 Nalezeno ${warehousesData.warehouses.length} skladů:\n`;
+                warehousesData.warehouses.forEach(w => {
+                    resultsEl.innerHTML += `  - ${w.name} (ID: ${w.id})\n`;
+                });
+                resultsEl.innerHTML += '\n';
+            }
+        } catch (error) {
+            resultsEl.innerHTML += `❌ WAREHOUSES API ERROR: ${error.message}\n\n`;
+        }
+        
+        // Test 2: Slots
+        try {
+            log('Testing slots API...');
+            const slotsResponse = await fetch('../api/slots.php');
+            const slotsData = await slotsResponse.json();
+            
+            resultsEl.innerHTML += `✅ SLOTS API (${slotsResponse.status})\n`;
+            resultsEl.innerHTML += `Response: ${JSON.stringify(slotsData, null, 2)}\n\n`;
+            
+            if (slotsData.success && slotsData.slots) {
+                resultsEl.innerHTML += `🕒 Nalezeno ${slotsData.slots.length} slotů:\n`;
+                slotsData.slots.forEach(s => {
+                    resultsEl.innerHTML += `  - ${s.slot_date} ${s.slot_time} @ ${s.warehouse_name}\n`;
+                });
+                resultsEl.innerHTML += '\n';
+            }
+        } catch (error) {
+            resultsEl.innerHTML += `❌ SLOTS API ERROR: ${error.message}\n\n`;
+        }
+        
+        // Test 3: Calendar slots for today
+        try {
+            log('Testing calendar slots API...');
+            const today = new Date().toISOString().split('T')[0];
+            const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+            
+            const calendarResponse = await fetch(`../api/slots.php?date_from=${today}&date_to=${tomorrow}`);
+            const calendarData = await calendarResponse.json();
+            
+            resultsEl.innerHTML += `✅ CALENDAR SLOTS API (${calendarResponse.status})\n`;
+            resultsEl.innerHTML += `URL: /api/slots.php?date_from=${today}&date_to=${tomorrow}\n`;
+            resultsEl.innerHTML += `Response: ${JSON.stringify(calendarData, null, 2)}\n\n`;
+            
+        } catch (error) {
+            resultsEl.innerHTML += `❌ CALENDAR API ERROR: ${error.message}\n\n`;
+        }
+        
+        statusEl.innerHTML = '✅ API testy dokončeny';
+    }
+    
+    function testConsole() {
+        const resultsEl = document.getElementById('console-results');
+        resultsEl.innerHTML = `
+📝 ZKONTROLUJ CONSOLE (F12):
+
+1. Otevři Developer Tools (F12)
+2. Jdi na záložku "Console" 
+3. Refresh stránku kalendáře
+4. Hledej červené chyby!
+
+Časté chyby:
+❌ "404 Not Found" - chybí soubor
+❌ "Uncaught TypeError" - chyba v JS
+❌ "Failed to fetch" - špatná URL
+❌ "SyntaxError" - chyba v JSON
+
+Zkopíruj sem všechny chyby!
+        `;
+    }
+    
+    function testCalendarJS() {
+        const resultsEl = document.getElementById('calendar-results');
+        resultsEl.innerHTML = 'Testuji kalendářový JavaScript...\n\n';
+        
+        // Test existence základních funkcí
+        const tests = [
+            'LogisticsCalendar',
+            'fetch',
+            'JSON',
+            'Date'
+        ];
+        
+        tests.forEach(testItem => {
+            try {
+                if (typeof window[testItem] !== 'undefined') {
+                    resultsEl.innerHTML += `✅ ${testItem} - OK\n`;
+                } else {
+                    resultsEl.innerHTML += `❌ ${testItem} - CHYBÍ!\n`;
+                }
+            } catch (e) {
+                resultsEl.innerHTML += `❌ ${testItem} - ERROR: ${e.message}\n`;
+            }
+        });
+        
+        // Test calendar initialization
+        resultsEl.innerHTML += '\n🔍 Test kalendáře:\n';
+        try {
+            // Simuluj inicializaci kalendáře
+            if (typeof LogisticsCalendar !== 'undefined') {
+                resultsEl.innerHTML += '✅ LogisticsCalendar třída existuje\n';
+                
+                // Try to create instance
+                const testContainer = document.createElement('div');
+                const calendar = new LogisticsCalendar(testContainer);
+                resultsEl.innerHTML += '✅ Kalendář lze vytvořit\n';
+                
+            } else {
+                resultsEl.innerHTML += '❌ LogisticsCalendar třída NEEXISTUJE!\n';
+                resultsEl.innerHTML += 'Zkontroluj: je načtený calendar.js?\n';
+            }
+        } catch (e) {
+            resultsEl.innerHTML += `❌ Chyba při vytváření kalendáře: ${e.message}\n`;
+        }
+    }
+    
+    async function quickSlotTest() {
+        const resultsEl = document.getElementById('slot-results');
+        resultsEl.innerHTML = '⚡ Rychlý test vytvoření slotu...\n\n';
+        
+        const testSlot = {
+            warehouse_id: 1,
+            slot_date: new Date().toISOString().split('T')[0],
+            slot_time: '10:00:00',
+            duration_minutes: 60,
+            max_capacity: 1,
+            slot_type: 'unloading',
+            notes: 'Test slot z debug'
+        };
+        
+        try {
+            resultsEl.innerHTML += `📤 Odesílám: ${JSON.stringify(testSlot, null, 2)}\n\n`;
+            
+            const response = await fetch('../api/slots.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(testSlot)
+            });
+            
+            const data = await response.json();
+            
+            resultsEl.innerHTML += `📥 Response (${response.status}):\n`;
+            resultsEl.innerHTML += `${JSON.stringify(data, null, 2)}\n\n`;
+            
+            if (data.success) {
+                resultsEl.innerHTML += `🎉 Slot vytvořen! ID: ${data.slot_id}\n`;
+            } else {
+                resultsEl.innerHTML += `❌ Chyba: ${data.error}\n`;
+                if (data.errors) {
+                    data.errors.forEach(err => resultsEl.innerHTML += `  - ${err}\n`);
+                }
+            }
+            
+        } catch (error) {
+            resultsEl.innerHTML += `💥 FETCH ERROR: ${error.message}\n`;
+        }
+    }
+    
+    // Auto-start
+    window.onload = function() {
+        testAPI();
+    };
+    </script>
+</body>
+</html>
