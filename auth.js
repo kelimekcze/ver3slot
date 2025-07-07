@@ -9,7 +9,7 @@ class AuthManager {
     // Automatické určení správné cesty k API
     getApiBasePath() {
         const currentPath = window.location.pathname;
-        if (currentPath.includes('/js/') || currentPath.includes('/css/')) {
+        if (currentPath.includes('/js/')) {
             return '../api'; // Pokud jsme v podsložce
         }
         return 'api'; // Pokud jsme v root

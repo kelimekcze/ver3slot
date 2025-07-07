@@ -13,7 +13,7 @@ class CRMApp {
     // Get API base path
     getApiBasePath() {
         const currentPath = window.location.pathname;
-        if (currentPath.includes('/js/') || currentPath.includes('/css/')) {
+        if (currentPath.includes('/js/')) {
             return '../api';
         }
         return 'api';
@@ -737,7 +737,7 @@ function logout() {
     if (confirm('Opravdu se chcete odhlásit?')) {
         // Determine API base path
         const currentPath = window.location.pathname;
-        const apiBase = currentPath.includes('/js/') || currentPath.includes('/css/') ? '../api' : 'api';
+        const apiBase = currentPath.includes('/js/') ? '../api' : 'api';
         window.location.href = apiBase + '/logout.php';
     }
 }

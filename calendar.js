@@ -42,7 +42,7 @@ class LogisticsCalendar {
     // Get API base path
     getApiBasePath() {
         const currentPath = window.location.pathname;
-        if (currentPath.includes('/js/') || currentPath.includes('/css/')) {
+        if (currentPath.includes('/js/')) {
             return '../api';
         }
         return 'api';

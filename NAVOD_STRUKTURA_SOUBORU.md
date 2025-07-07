@@ -9,23 +9,28 @@ Váš server má specifickou strukturu adresářů, ale soubory z ZIP jsou v roo
 ```
 /váš-web-root/
 ├── index.html                    ← HTML soubory v root
-├── style.css                     ← CSS v root (nebo /css/)
-├── /api/                         ← PHP soubory zde
-│   ├── logout.php
-│   ├── slots.php
-│   ├── warehouses.php
-│   ├── bookings.php
-│   └── session.php
-├── /js/                          ← JavaScript soubory zde
+├── /css/                         ← CSS soubory zde
+│   └── style.css
+├── /js/                          ← JavaScript soubory zde (ZATÍM NEVYTVÁREJTE!)
 │   ├── app.js
 │   ├── auth.js
 │   ├── booking.js
 │   ├── calendar.js
 │   └── dashboard.js
-└── /classes/                     ← PHP třídy zde
-    ├── TimeSlot.php
-    ├── User.php
-    └── Booking.php
+├── /api/                         ← PHP soubory zde
+│   ├── bookings.php
+│   ├── companies.php
+│   ├── login.php
+│   ├── logout.php
+│   ├── session.php
+│   └── slots.php
+├── /classes/                     ← PHP třídy zde
+│   ├── Booking.php
+│   ├── TimeSlot.php
+│   ├── LicenseManager.php
+│   └── User.php
+└── /config/                      ← Konfigurace
+    └── database.php
 ```
 
 ## 📥 JAK NAHRÁT SOUBORY:
@@ -35,30 +40,30 @@ Rozbalte `logisticky_kalendar_projekt.zip` na vašem počítači.
 
 ### **Krok 2: Nahrajte podle typu** 🚀
 
-#### **HTML a CSS soubory** → **Root adresář**
-- `index.html` → přímo do root
-- `style.css` → přímo do root (nebo `/css/`)
+#### **HTML soubory** → **Root adresář**
+- `index.html` → přímo do root (PŘEPSAT existující)
+
+#### **CSS soubory** → **Adresář `/css/`**
+- `style.css` → `/css/style.css` (PŘEPSAT existující)
 
 #### **JavaScript soubory** → **Adresář `/js/`**
-- `app.js` → `/js/app.js`
-- `auth.js` → `/js/auth.js`
-- `booking.js` → `/js/booking.js`
-- `calendar.js` → `/js/calendar.js`
-- `dashboard.js` → `/js/dashboard.js`
+- `app.js` → `/js/app.js` (PŘEPSAT existující)
+- `auth.js` → `/js/auth.js` (PŘEPSAT existující)
+- `booking.js` → `/js/booking.js` (PŘEPSAT existující)
+- `calendar.js` → `/js/calendar.js` (PŘEPSAT existující)
+- `dashboard.js` → `/js/dashboard.js` (PŘEPSAT existující)
 
 #### **PHP soubory** → **Adresář `/api/`**
-- `slots.php` → `/api/slots.php`
-- `warehouses.php` → `/api/warehouses.php`
-- `bookings.php` → `/api/bookings.php`
-- `login.php` → `/api/login.php`
-- `logout.php` → `/api/logout.php`
-- `session.php` → `/api/session.php`
+- `slots.php` → `/api/slots.php` (PŘEPSAT existující)
+- `warehouses.php` → `/api/warehouses.php` (přepsat pokud existuje)
+- `bookings.php` → `/api/bookings.php` (PŘEPSAT existující)
+- Ostatní PHP soubory jsou už správné
 
 #### **PHP třídy** → **Adresář `/classes/`**
-- `TimeSlot.php` → `/classes/TimeSlot.php`
-- `User.php` → `/classes/User.php`
-- `Booking.php` → `/classes/Booking.php`
-- `LicenseManager.php` → `/classes/LicenseManager.php`
+- `TimeSlot.php` → `/classes/TimeSlot.php` (PŘEPSAT existující)
+- `User.php` → `/classes/User.php` (PŘEPSAT existující)  
+- `Booking.php` → `/classes/Booking.php` (PŘEPSAT existující)
+- `LicenseManager.php` → `/classes/LicenseManager.php` (PŘEPSAT existující)
 
 ### **Krok 3: Spusťte databázový upgrade** 💾
 V phpMyAdmin spusťte obsah `safe_database_upgrade.sql`.
