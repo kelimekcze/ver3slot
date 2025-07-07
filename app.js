@@ -5,9 +5,18 @@ class CRMApp {
         this.refreshInterval = null;
         this.currentDate = new Date();
         this.selectedDate = null;
-        this.apiBase = 'api';
+        this.apiBase = this.getApiBasePath();
         
         this.init();
+    }
+
+    // Get API base path
+    getApiBasePath() {
+        const currentPath = window.location.pathname;
+        if (currentPath.includes('/js/') || currentPath.includes('/css/')) {
+            return '../api';
+        }
+        return 'api';
     }
 
     async init() {
@@ -726,7 +735,10 @@ function showSection(sectionName) {
 
 function logout() {
     if (confirm('Opravdu se chcete odhlásit?')) {
-        window.location.href = 'logout.php';
+        // Determine API base path
+        const currentPath = window.location.pathname;
+        const apiBase = currentPath.includes('/js/') || currentPath.includes('/css/') ? '../api' : 'api';
+        window.location.href = apiBase + '/logout.php';
     }
 }
 
